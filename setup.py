@@ -10,7 +10,7 @@ NAME = 'oasys-comsyl'
 VERSION = '0.1'
 ISRELEASED = False
 
-DESCRIPTION = 'oasys-comsyl: comsyl widgets for Oasys'
+DESCRIPTION = 'oasys-comsyl: Oasys widgets for COMSYL'
 README_FILE = os.path.join(os.path.dirname(__file__), 'README.txt')
 LONG_DESCRIPTION = open(README_FILE).read()
 AUTHOR = 'M. Sanchez del Rio, M. Glass'
@@ -65,19 +65,17 @@ PACKAGES = find_packages(
                          exclude = ('*.tests', '*.tests.*', 'tests.*', 'tests'),
                          )
 
-PACKAGE_DATA = {"orangecontrib.oasys-comsyl.widgets.viewers":["icons/*.png", "icons/*.jpg"],
-                "orangecontrib.oasys-comsyl.widgets.applications":["icons/*.png", "icons/*.jpg"],
+PACKAGE_DATA = {"orangecontrib.comsyl.widgets.applications":["icons/*.png", "icons/*.jpg"],
 }
 
 
-NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.oasys-comsyl", "orangecontrib.oasys-comsyl.widgets"]
+NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.comsyl", "orangecontrib.comsyl.widgets"]
 
 
 ENTRY_POINTS = {
-    'oasys.addons' : ("COMSYL = orangecontrib.oasys-comsyl", ),
+    'oasys.addons' : ("COMSYL = orangecontrib.comsyl", ),
     'oasys.widgets' : (
-        "COMSYL Applications = orangecontrib.oasys-comsyl.widgets.applications",
-        "COMSYL Viewers = orangecontrib.oasys-comsyl.widgets.viewers",
+        "COMSYL = orangecontrib.comsyl.widgets.applications",
     ),
 }
 
