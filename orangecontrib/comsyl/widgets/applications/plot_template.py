@@ -1,20 +1,17 @@
-from PyQt4 import QtGui
-# from orangewidget import widget, gui
-import numpy as np
-import matplotlib.pyplot as plt
+
+
+import numpy
 
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 
-
+from PyQt4 import QtGui
 from PyQt4.QtGui import QIntValidator, QDoubleValidator, QApplication
 from PyQt4.QtCore import QRect
 
 from orangewidget import gui
 from orangewidget.settings import Setting
-from orangewidget.widget import OWAction
 from oasys.widgets import widget
 from oasys.widgets import gui as oasysgui
-from oasys.widgets.exchange import DataExchangeObject
 
 from srxraylib.plot import gol
 from silx.gui.plot import PlotWindow, Plot2D
@@ -31,12 +28,12 @@ class OWPlotTemplate(widget.OWWidget):
     category = ""
     keywords = ["list", "of", "keywords"]
     inputs = [{"name": "oasysaddontemplate-data",
-                "type": np.ndarray,
+                "type": numpy.ndarray,
                 "doc": "",
                 "handler": "do_plot" },
                 ]
 
-    TYPE_PRESENTATION = Setting(0)
+    TYPE_PRESENTATION = Setting(0) # 0=gol, 1=silx
     TAB_NUMBER = Setting(0)
     MACHINE_R_M = Setting(25.0)
     BFIELD_T = Setting(0.8)
@@ -47,13 +44,11 @@ class OWPlotTemplate(widget.OWWidget):
     MAX_WIDTH = 1320
     MAX_HEIGHT = 700
     CONTROL_AREA_WIDTH = 405
-    TABS_AREA_HEIGHT = 560
+    # TABS_AREA_HEIGHT = 560
 
     view_type=Setting(1)
 
     calculated_data = Setting(None)
-
-    want_main_area = 1
 
 
     def unitLabels(self):
@@ -62,14 +57,9 @@ class OWPlotTemplate(widget.OWWidget):
          return ['True','True','self.TYPE_PRESENTATION  ==  0','self.TAB_NUMBER  ==  1',]
 
     def __init__(self):
-        # super().__init__()
-        # self.figure_canvas = None
-        # self.build_gui()
+
         super().__init__()
 
-        # self.runaction = OWAction("Compute", self)
-        # self.runaction.triggered.connect(self.compute)
-        # self.addAction(self.runaction)
 
         geom = QApplication.desktop().availableGeometry()
         self.setGeometry(QRect(round(geom.width()*0.05),
@@ -80,17 +70,10 @@ class OWPlotTemplate(widget.OWWidget):
         self.setMaximumHeight(self.geometry().height())
         self.setMaximumWidth(self.geometry().width())
 
+
         self.controlArea.setFixedWidth(self.CONTROL_AREA_WIDTH)
 
-        # box0 = gui.widgetBox(self.controlArea, "", orientation="horizontal")
-        #widget buttons: compute, set defaults, help
-        # gui.button(box0, self, "Compute", callback=self.compute)
-        # gui.button(box0, self, "Defaults", callback=self.defaults)
-        # gui.button(box0, self, "Help", callback=self.help1)
-
-        gui.separator(self.controlArea, height=10)
-
-        self.build_gui()
+        self.build_left_panel()
 
         self.process_showers()
 
@@ -98,66 +81,19 @@ class OWPlotTemplate(widget.OWWidget):
 
         self.main_tabs = gui.tabWidget(self.mainArea)
         plot_tab = gui.createTabPage(self.main_tabs, "Results")
-        # out_tab = gui.createTabPage(self.main_tabs, "Output")
-
-
-
-        # view_box = oasysgui.widgetBox(plot_tab, "Results Options", addSpace=False, orientation="horizontal")
-        # view_box_1 = oasysgui.widgetBox(view_box, "", addSpace=False, orientation="vertical", width=350)
-        #
-        # self.view_type_combo = gui.comboBox(view_box_1, self, "view_type", label="View Results",
-        #                                     labelWidth=220,
-        #                                     items=["No", "Yes"],
-        #                                     callback=self.set_ViewType, sendSelectedValue=False, orientation="horizontal")
 
         self.tab = []
         self.tabs = gui.tabWidget(plot_tab)
+        self.initializeTabs(titles=["TAB 0","TAB 1"])
 
-        self.initializeTabs()
 
-        # self.xoppy_output = QtGui.QTextEdit()
-        # self.xoppy_output.setReadOnly(True)
-        #
-        # out_box = gui.widgetBox(out_tab, "System Output", addSpace=True, orientation="horizontal")
-        # out_box.layout().addWidget(self.xoppy_output)
-        #
-        # self.xoppy_output.setFixedHeight(600)
-        # self.xoppy_output.setFixedWidth(600)
-        #
-        # gui.rubber(self.mainArea)
+    def initializeTabs(self,titles):
 
-    # def compute(self):
-    #     pass
-    #
-    # def defaults(self):
-    #     pass
-    #
-    # def help1(self):
-    #     pass
-
-    def set_ViewType(self):
-        self.progressBarInit()
-
-        if not self.calculated_data==None:
-            try:
-                self.initializeTabs()
-
-                self.plot_results(self.calculated_data)
-            except Exception as exception:
-                QtGui.QMessageBox.critical(self, "Error",
-                                           str(exception),
-                    QtGui.QMessageBox.Ok)
-
-        self.progressBarFinished()
-
-    def initializeTabs(self):
         size = len(self.tab)
         indexes = range(0, size)
 
         for index in indexes:
             self.tabs.removeTab(size-1-index)
-
-        titles = ["TAB 1","TAB 2"]
 
         self.tab = []
         self.plot_canvas = []
@@ -170,10 +106,12 @@ class OWPlotTemplate(widget.OWWidget):
             tab.setFixedHeight(self.IMAGE_HEIGHT)
             tab.setFixedWidth(self.IMAGE_WIDTH)
 
-    def figure_canvas(self):
-        pass
 
-    def build_gui(self):
+    def set_calculated_data(self,data):
+        self.calculated_data = data
+
+
+    def build_left_panel(self):
 
         box = oasysgui.widgetBox(self.controlArea, " Input Parameters", orientation="vertical", width=self.CONTROL_AREA_WIDTH-5)
 
@@ -185,7 +123,7 @@ class OWPlotTemplate(widget.OWWidget):
         gui.comboBox(box1, self, "TYPE_PRESENTATION",
                      label=self.unitLabels()[idx], addSpace=False,
                     items=['matplotlib/gol', 'silx',],
-                    valueType=int, orientation="horizontal", callback=self.set_TYPE_CALC)
+                    valueType=int, orientation="horizontal", callback=self.change_TYPE_PRESENTATION)
         self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -194,7 +132,7 @@ class OWPlotTemplate(widget.OWWidget):
         box1 = gui.widgetBox(box)
         gui.comboBox(box1, self, "TAB_NUMBER",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['TAB 1', 'TAB 2'],
+                    items=['TAB 0', 'TAB 1'],
                     valueType=int, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
@@ -215,31 +153,33 @@ class OWPlotTemplate(widget.OWWidget):
         self.show_at(self.unitFlags()[idx], box1)
 
 
-    def set_TYPE_CALC(self):
-        pass
-        # self.initializeTabs()
-        # if self.TYPE_PRESENTATION == 3:
-        #         self.VER_DIV = 2
+    def change_TYPE_PRESENTATION(self):
+        print("in change_TYPE_PRESENTAION")
+        self.do_plot()
 
-    def do_plot(self,custom_data=None,kind="silx"):
 
-        if custom_data is not None:
-            x = custom_data[0,:]
-            y = custom_data[-1,:]
+    def do_plot(self):
+
+        print("self.TAB_NUMBER = ",self.TAB_NUMBER)
+        self.tab[self.TAB_NUMBER].layout().removeItem(self.tab[self.TAB_NUMBER].layout().itemAt(0))
+
+
+
+        if self.calculated_data is not None:
+            x = self.calculated_data["x"]
+            y = self.calculated_data["y"]
             x.shape = -1
             y.shape = -1
-            print(">>>>",x.shape,y.shape)
         else:
             print("Nothing to plot")
             return
 
-        if kind == "gol":
+        if self.TYPE_PRESENTATION == 0: # matplotlib
             figure = FigureCanvas(gol.plot(x,y,show=False,))
-            self.plot_canvas[0] = figure
-            # self.figure_canvas = figure
-            self.tab[0].layout().addWidget(self.plot_canvas[0])
-        elif kind == "silx":
-            self.plot_canvas[0] = PlotWindow(parent=None,
+            self.plot_canvas[self.TAB_NUMBER] = figure
+            self.tab[self.TAB_NUMBER].layout().addWidget(self.plot_canvas[self.TAB_NUMBER])
+        elif self.TYPE_PRESENTATION == 1: # silx
+            self.plot_canvas[self.TAB_NUMBER] = PlotWindow(parent=None,
                                                              backend=None,
                                                              resetzoom=True,
                                                              autoScale=False,
@@ -259,33 +199,24 @@ class OWPlotTemplate(widget.OWWidget):
                                                              fit=False)
 
 
-            self.tab[0].layout().addWidget(self.plot_canvas[0])
+            self.tab[self.TAB_NUMBER].layout().addWidget(self.plot_canvas[self.TAB_NUMBER])
 
-            self.plot_canvas[0].setDefaultPlotLines(True)
-            self.plot_canvas[0].setActiveCurveColor(color='darkblue')
-            self.plot_canvas[0].setXAxisLogarithmic(False)
-            self.plot_canvas[0].setYAxisLogarithmic(False)
-            self.plot_canvas[0].setGraphXLabel("title")
-            self.plot_canvas[0].setGraphYLabel("title")
-
-            self.plot_canvas[0].addCurve(x, y, "TITLE", symbol='', color="darkblue", xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
-            # self.plot_canvas[0].setDrawModeEnabled(True, 'rectangle')
-            # self.plot_canvas[0].setZoomModeEnabled(True)
-            # self.plot_canvas[0].resetZoom()
-            # self.plot_canvas[0].replot()
-
-
-
-        return
+            self.plot_canvas[self.TAB_NUMBER].setDefaultPlotLines(True)
+            self.plot_canvas[self.TAB_NUMBER].setActiveCurveColor(color='darkblue')
+            self.plot_canvas[self.TAB_NUMBER].setXAxisLogarithmic(False)
+            self.plot_canvas[self.TAB_NUMBER].setYAxisLogarithmic(False)
+            self.plot_canvas[self.TAB_NUMBER].setGraphXLabel("title")
+            self.plot_canvas[self.TAB_NUMBER].setGraphYLabel("title")
+            self.plot_canvas[self.TAB_NUMBER].addCurve(x, y, "TITLE", symbol='', color="darkblue", xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        #
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])
     ow = OWPlotTemplate()
-    a = np.array([
-        [  8.47091837e+04,  8.57285714e+04,   8.67479592e+04, 8.77673469e+04,] ,
-        [  1.16210756e+12,  1.10833975e+12,   1.05700892e+12, 1.00800805e+12]
-        ])
-    ow.do_plot(a)
+
+    ow.set_calculated_data({"x":numpy.array([  8.47091837e+04,  8.57285714e+04,   8.67479592e+04, 8.77673469e+04]),
+                            "y":numpy.array([  1.16210756e+12,  1.10833975e+12,   1.05700892e+12, 1.00800805e+12]) })
+    ow.do_plot()
     ow.show()
     app.exec_()
     ow.saveSettings()
