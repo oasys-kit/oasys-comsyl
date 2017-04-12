@@ -38,9 +38,7 @@ class OWAFViewer(widget.OWWidget):
               ]
 
     TYPE_PRESENTATION = Setting(0) # 0=abs, 1=real, 2=phase
-    TAB_NUMBER = Setting(0)
-    MACHINE_R_M = Setting(25.0)
-    BFIELD_T = Setting(0.8)
+    MODE_TO_PLOT = Setting(0)
 
 
     IMAGE_WIDTH = 760
@@ -52,9 +50,9 @@ class OWAFViewer(widget.OWWidget):
 
 
     def unitLabels(self):
-         return ['Type of presentation','Tab number:','Parameter 1','Parameter 2']
+         return ['Type of presentation','Mode to plot:']
     def unitFlags(self):
-         return ['True','True','self.TYPE_PRESENTATION  ==  0','self.TAB_NUMBER  ==  1',]
+         return ['True','True']
 
     def __init__(self):
 
@@ -84,7 +82,7 @@ class OWAFViewer(widget.OWWidget):
 
         self.tab = []
         self.tabs = gui.tabWidget(plot_tab)
-        self.tab_titles = ["SPECTRUM","MODES"]
+        self.tab_titles = ["SPECTRUM","ALL MODES","MODE %d"%self.MODE_TO_PLOT]
         self.initializeTabs()
 
 
@@ -109,44 +107,31 @@ class OWAFViewer(widget.OWWidget):
 
     def build_left_panel(self):
 
-        box = oasysgui.widgetBox(self.controlArea, " Input Parameters", orientation="vertical", width=self.CONTROL_AREA_WIDTH-5)
+        box = oasysgui.widgetBox(self.controlArea, "Plotting Parameters", orientation="vertical", width=self.CONTROL_AREA_WIDTH-5)
 
         idx = -1
+
+        gui.button(box, self, "Replot", callback=self.do_plot)
 
         #widget index 0
         idx += 1
         box1 = gui.widgetBox(box)
         gui.comboBox(box1, self, "TYPE_PRESENTATION",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['modulus','real part','imaginary part','angle [rad]'],
+                    items=['intensity','modulus','real part','imaginary part','angle [rad]'],
                     valueType=int, orientation="horizontal", callback=self.do_plot)
         self.show_at(self.unitFlags()[idx], box1)
 
 
-        #widget index 2
+
+        #widget index 1
         idx += 1
         box1 = gui.widgetBox(box)
-        gui.comboBox(box1, self, "TAB_NUMBER",
+        oasysgui.lineEdit(box1, self, "MODE_TO_PLOT",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['TAB 0', 'TAB 1'],
-                    valueType=int, orientation="horizontal", labelWidth=250)
+                    valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
-        #widget index 3
-        idx += 1
-        box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "MACHINE_R_M",
-                     label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
-        self.show_at(self.unitFlags()[idx], box1)
-
-        #widget index 4
-        idx += 1
-        box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "BFIELD_T",
-                     label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
-        self.show_at(self.unitFlags()[idx], box1)
 
 
     def _set_input_and_do_plot(self, eigenstates):
@@ -161,25 +146,35 @@ class OWAFViewer(widget.OWWidget):
             print("AFViewer: %d modes received.\n"%(eigenstates.number_modes()))
             self.eigenstates = eigenstates
 
+    def _square_modulus(self,array1):
+        return (numpy.absolute(array1))**2
     def do_plot(self):
+        self.tab_titles = ["SPECTRUM","ALL MODES","MODE %d"%self.MODE_TO_PLOT]
         self.initializeTabs()
-        self.tab[0].layout().removeItem(self.tab[0].layout().itemAt(0))
-        self.tab[1].layout().removeItem(self.tab[1].layout().itemAt(0))
+
+        for i in range(len(self.tab_titles)):
+            self.tab[i].layout().removeItem(self.tab[i].layout().itemAt(0))
 
         if self.TYPE_PRESENTATION == 0:
+            myprocess = self._square_modulus
+            title0 = "Intensity of eigenvalues"
+            title1 = "Intensity of eigenvector"
+        if self.TYPE_PRESENTATION == 1:
             myprocess = numpy.absolute
             title0 = "Modulus of eigenvalues"
-            title1 = "Modulus of eigenvectors"
-        elif self.TYPE_PRESENTATION == 1:
+            title1 = "Modulus of eigenvector"
+        elif self.TYPE_PRESENTATION == 2:
             myprocess = numpy.real
             title0 = "Real part of eigenvalues"
-            title1 = "Real part of eigenvectors"
-        elif self.TYPE_PRESENTATION == 2:
+            title1 = "Real part of eigenvector"
+        elif self.TYPE_PRESENTATION == 3:
             myprocess = numpy.imag
             title0 = "Imaginary part of eigenvalues"
-            title1 = "Imaginary part of eigenvectors"
-        elif self.TYPE_PRESENTATION == 3:
+            title1 = "Imaginary part of eigenvectos"
+        elif self.TYPE_PRESENTATION == 4:
             myprocess = numpy.angle
+            title0 = "Angle of eigenvalues [rad]"
+            title1 = "Angle of eigenvector [rad]"
 
         if self._input_available:
             x_values = numpy.arange(self.eigenstates.number_modes())
@@ -197,6 +192,20 @@ class OWAFViewer(widget.OWWidget):
                 y_values[i_mode] = myprocess(self.eigenstates.occupation_number(i_mode))
                 mode = myprocess(self.eigenstates.mode(i_mode))
                 mystack[i_mode,:,:] = mode.T
+
+
+            xx = self.eigenstates.x_coordinates()
+            yy = self.eigenstates.y_coordinates()
+
+            xmin = numpy.min(xx)
+            xmax = numpy.max(xx)
+            ymin = numpy.min(yy)
+            ymax = numpy.max(yy)
+
+            integral1 = ((numpy.absolute(mystack[self.MODE_TO_PLOT,:,:]))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0])
+            integral1 = myprocess(mystack[self.MODE_TO_PLOT,:,:]).sum()
+            integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
+            print("Integrated values for mode %d is %f"%(self.MODE_TO_PLOT,integral1))
         else:
             print("Nothing to plot")
             return
@@ -232,15 +241,12 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[0].setYAxisLogarithmic(False)
         self.plot_canvas[0].setGraphXLabel(x_label)
         self.plot_canvas[0].setGraphYLabel(y_label)
-        self.plot_canvas[0].addCurve(x_values, y_values, "TITLE", symbol='', color="darkblue", xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[0].addCurve(x_values, y_values, title0, symbol='', color="darkblue", xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
         #
-        # plot modes
+        # plot all modes
         #
-        xmin = numpy.min(self.eigenstates.x_coordinates())
-        xmax = numpy.max(self.eigenstates.x_coordinates())
-        ymin = numpy.min(self.eigenstates.y_coordinates())
-        ymax = numpy.max(self.eigenstates.y_coordinates())
+
 
         origin = (xmin, ymin)
         scale = (abs((xmax-xmin)/len(self.eigenstates.x_coordinates())), abs((ymax-ymin)/len(self.eigenstates.y_coordinates())))
@@ -248,11 +254,61 @@ class OWAFViewer(widget.OWWidget):
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
         self.plot_canvas[1] = StackViewMainWindow()
-        self.plot_canvas[1].setGraphTitle("Eigenvectors")
-        self.plot_canvas[1].setLabels(["Mode number","Y","X"])
+        self.plot_canvas[1].setGraphTitle(title1)
+        self.plot_canvas[1].setLabels(["Mode number",
+                                       "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
+                                       "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax)])
         self.plot_canvas[1].setColormap(colormap=colormap)
         self.plot_canvas[1].setStack(numpy.absolute(mystack)) # , origin=origin, scale=scale,  )
         self.tab[1].layout().addWidget(self.plot_canvas[1])
+
+        #
+        # plot single mode
+        #
+        origin = (1e6*xmin, 1e6*ymin)
+        scale = (1e6*abs((xmax-xmin)/self.eigenstates.x_coordinates().size),
+                 1e6*abs((ymax-ymin)/self.eigenstates.y_coordinates().size))
+
+        colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+
+
+        self.plot_canvas[2] = Plot2D()
+        self.plot_canvas[2].resetZoom()
+        self.plot_canvas[2].setXAxisAutoScale(True)
+        self.plot_canvas[2].setYAxisAutoScale(True)
+        self.plot_canvas[2].setGraphGrid(False)
+        self.plot_canvas[2].setKeepDataAspectRatio(True)
+        self.plot_canvas[2].yAxisInvertedAction.setVisible(False)
+        self.plot_canvas[2].setXAxisLogarithmic(False)
+        self.plot_canvas[2].setYAxisLogarithmic(False)
+        self.plot_canvas[2].getMaskAction().setVisible(False)
+        self.plot_canvas[2].getRoiAction().setVisible(False)
+        self.plot_canvas[2].getColormapAction().setVisible(False)
+        self.plot_canvas[2].setKeepDataAspectRatio(False)
+
+
+        self.plot_canvas[2].addImage(myprocess(mystack[self.MODE_TO_PLOT,:,:]),
+                                                     legend="zio billy",
+                                                     colormap=colormap,
+                                                     replace=True,
+                                                     origin=origin,
+                                                     scale=scale)
+
+        self.plot_canvas[2].setActiveImage("zio billy")
+
+
+
+        from matplotlib.image import AxesImage
+        image = AxesImage(self.plot_canvas[2]._backend.ax)
+        image.set_data(myprocess(mystack[self.MODE_TO_PLOT,:,:]))
+
+        self.plot_canvas[2]._backend.fig.colorbar(image, ax=self.plot_canvas[2]._backend.ax)
+        self.plot_canvas[2].setGraphXLabel("X [um]")
+        self.plot_canvas[2].setGraphYLabel("Y [um]")
+        self.plot_canvas[2].setGraphTitle(title1)
+
+        self.tab[2].layout().addWidget(self.plot_canvas[2])
+
 
 
     def get_doc(self):
@@ -276,6 +332,7 @@ if __name__ == '__main__':
     ow = OWAFViewer()
 
     filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5"
+    # filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3"
     eigenstates = CompactAFReader(filename)
 
     ow._set_input(eigenstates)
