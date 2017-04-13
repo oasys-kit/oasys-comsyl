@@ -70,7 +70,7 @@ class OWCompactAFReader(oasyswidget.OWWidget):
 
         filename_witout_extension = ('.').join(filename.split('.')[:-1])
 
-        self.le_beam_file_name.setText(filename)
+        self.le_beam_file_name.setText(filename_witout_extension)
 
     def read_file(self):
         self.setStatusMessage("")
