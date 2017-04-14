@@ -13,6 +13,7 @@ from oasys.widgets import widget as oasyswidget
 # import sys
 
 from comsyl.scripts.CompactAFReader import CompactAFReader
+from orangecontrib.comsyl.scripts.CompactH5Reader import CompactH5Reader
 
 
 class OWCompactAFReader(oasyswidget.OWWidget):
@@ -21,21 +22,25 @@ class OWCompactAFReader(oasyswidget.OWWidget):
     icon = "icons/CompactAFReader.png"
     maintainer = "Manuel Sanchez del Rio"
     maintainer_email = "srio(@at@)esrf.eu"
-    priority = 2
+    priority = 9
     category = "Utility"
     keywords = ["data", "file", "load", "read"]
 
     want_main_area = 0
 
-    beam_file_name = Setting("/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5")
+    beam_file_name = Setting("/Users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/ph3_u18_3_17keV_s1.3_100modes.h5")
 
     outputs = [{"name": "eigen-states",
                 "type": CompactAFReader,
                 "doc": "Coherent Modes Data",
                 "id": "eigen-states"}, ]
 
+
+
     def __init__(self):
         super().__init__()
+
+        self.CompactReader = CompactH5Reader
 
         self.runaction = widget.OWAction("Read COMSYL Results from Files", self)
         self.runaction.triggered.connect(self.read_file)
@@ -65,12 +70,27 @@ class OWCompactAFReader(oasyswidget.OWWidget):
     def selectFile(self):
 
         filename = oasysgui.selectFileFromDialog(self,
-                previous_file_path=self.beam_file_name, message="Open COMSYL File [*.npy or *.npz]",
-                start_directory=".", file_extension_filter="*.np*")
+                previous_file_path=self.beam_file_name, message="Open COMSYL File [*.npy or *.npz or h5]",
+                start_directory=".", file_extension_filter="*.*")
 
         filename_witout_extension = ('.').join(filename.split('.')[:-1])
+        file_extension = filename.split('.')[-1]
 
-        self.le_beam_file_name.setText(filename_witout_extension)
+        print("File extension is: ",file_extension)
+
+        if file_extension == "h5":
+            self.CompactReader = CompactH5Reader
+            self.le_beam_file_name.setText(filename)
+        elif file_extension == "npy":
+            self.CompactReader = CompactAFReader
+            self.le_beam_file_name.setText(filename_witout_extension)
+        elif file_extension == "npz":
+            self.CompactReader = CompactAFReader
+            self.le_beam_file_name.setText(filename_witout_extension)
+        else:
+            raise FileExistsError("Unknown file")
+
+
 
     def read_file(self):
         self.setStatusMessage("")
@@ -79,7 +99,7 @@ class OWCompactAFReader(oasyswidget.OWWidget):
             if congruence.checkFileName(self.beam_file_name):
 
                 try:
-                    reader = CompactAFReader(self.beam_file_name)
+                    reader = self.CompactReader(self.beam_file_name)
                 except:
                     raise FileExistsError("Error loading COMSYL modes from file: %s.npy .npz"%self.beam_file_name)
 
@@ -89,8 +109,8 @@ class OWCompactAFReader(oasyswidget.OWWidget):
                 print("on the grid")
                 print("x: from %e to %e" % (reader.x_coordinates().min(), reader.x_coordinates().max()))
                 print("y: from %e to %e" % (reader.y_coordinates().min(), reader.y_coordinates().max()))
-                print("calculated at %f eV" % reader.photon_energy())
-                print("with total intensity in (maybe improper) normalization: %e" % reader.total_intensity().real.sum())
+                # print("calculated at %f eV" % reader.photon_energy())
+                # print("with total intensity in (maybe improper) normalization: %e" % reader.total_intensity().real.sum())
 
                 #
                 #

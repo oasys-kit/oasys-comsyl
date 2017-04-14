@@ -13,6 +13,8 @@ app = QtGui.QApplication([])
 hfile = "/Users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/ph3_u18_3_17keV_s1.3_100modes.h5"
 
 h5f = h5py.File(hfile,'r')
+for key in h5f.keys():
+    print(">>>>",key)
 data = h5f['modes'][:]
 h5f.close()
 

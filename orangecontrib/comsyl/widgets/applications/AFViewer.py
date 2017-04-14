@@ -18,7 +18,7 @@ from oasys.widgets import widget
 from oasys.widgets import gui as oasysgui
 
 from comsyl.scripts.CompactAFReader import CompactAFReader
-
+from orangecontrib.comsyl.scripts.CompactH5Reader import CompactH5Reader
 
 class OWAFViewer(widget.OWWidget):
     name = "AFViewer"
@@ -182,16 +182,17 @@ class OWAFViewer(widget.OWWidget):
             y_label =  "Occupation"
             y_values = numpy.zeros(self.eigenstates.number_modes())
 
-            mystack = numpy.zeros((self.eigenstates.number_modes(),
-                                self.eigenstates.y_coordinates().size,
-                                self.eigenstates.x_coordinates().size),
-                                dtype=complex)
-            print("mystack shape: ",mystack.shape)
+            mystack = self.eigenstates._modes # numpy.zeros((self.eigenstates.number_modes(),
+                                # self.eigenstates.y_coordinates().size,
+                                # self.eigenstates.x_coordinates().size),
+                                # dtype=complex)
+            print("mystack, X, Y shapes: ",mystack.shape,self.eigenstates.x_coordinates().shape,
+                  self.eigenstates.y_coordinates().shape)
 
             for i_mode in range(self.eigenstates.number_modes()):
                 y_values[i_mode] = myprocess(self.eigenstates.occupation_number(i_mode))
-                mode = myprocess(self.eigenstates.mode(i_mode))
-                mystack[i_mode,:,:] = mode.T
+                # mode = myprocess(self.eigenstates.mode(i_mode))
+                # mystack[i_mode,:,:] = mode
 
 
             xx = self.eigenstates.x_coordinates()
@@ -241,7 +242,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[0].setYAxisLogarithmic(False)
         self.plot_canvas[0].setGraphXLabel(x_label)
         self.plot_canvas[0].setGraphYLabel(y_label)
-        self.plot_canvas[0].addCurve(x_values, y_values, title0, symbol='', color="darkblue", xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[0].addCurve(x_values, y_values, title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
         #
         # plot all modes
@@ -331,9 +332,9 @@ if __name__ == '__main__':
     app = QtGui.QApplication([])
     ow = OWAFViewer()
 
-    filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5"
+    filename = "/Users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/ph3_u18_3_17keV_s1.3_100modes.h5"
     # filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3"
-    eigenstates = CompactAFReader(filename)
+    eigenstates = CompactH5Reader(filename)
 
     ow._set_input(eigenstates)
     ow.do_plot()

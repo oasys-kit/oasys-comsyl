@@ -18,7 +18,7 @@ from silx.gui.plot import PlotWindow, Plot2D
 
 
 class OWPlotTemplate(widget.OWWidget):
-    name = "Plot Simple"
+    name = "Plot Template"
     id = "orange.widgets.data.widget_name"
     description = ""
     icon = "icons/plot_simple.png"
