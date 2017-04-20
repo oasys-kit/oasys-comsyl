@@ -17,8 +17,7 @@ from orangewidget.settings import Setting
 from oasys.widgets import widget
 from oasys.widgets import gui as oasysgui
 
-from comsyl.scripts.CompactAFReader import CompactAFReader
-from orangecontrib.comsyl.scripts.CompactH5Reader import CompactH5Reader
+from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 class OWAFViewer(widget.OWWidget):
     name = "AFViewer"
@@ -180,19 +179,6 @@ class OWAFViewer(widget.OWWidget):
             x_values = numpy.arange(self.eigenstates.number_modes())
             x_label = "Mode index"
             y_label =  "Occupation"
-            y_values = numpy.zeros(self.eigenstates.number_modes())
-
-            mystack = self.eigenstates._modes # numpy.zeros((self.eigenstates.number_modes(),
-                                # self.eigenstates.y_coordinates().size,
-                                # self.eigenstates.x_coordinates().size),
-                                # dtype=complex)
-            print("mystack, X, Y shapes: ",mystack.shape,self.eigenstates.x_coordinates().shape,
-                  self.eigenstates.y_coordinates().shape)
-
-            for i_mode in range(self.eigenstates.number_modes()):
-                y_values[i_mode] = myprocess(self.eigenstates.occupation_number(i_mode))
-                # mode = myprocess(self.eigenstates.mode(i_mode))
-                # mystack[i_mode,:,:] = mode
 
 
             xx = self.eigenstates.x_coordinates()
@@ -203,8 +189,8 @@ class OWAFViewer(widget.OWWidget):
             ymin = numpy.min(yy)
             ymax = numpy.max(yy)
 
-            integral1 = ((numpy.absolute(mystack[self.MODE_TO_PLOT,:,:]))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0])
-            integral1 = myprocess(mystack[self.MODE_TO_PLOT,:,:]).sum()
+            integral1 = ((numpy.absolute(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0])
+            integral1 = myprocess(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]).sum()
             integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
             print("Integrated values for mode %d is %f"%(self.MODE_TO_PLOT,integral1))
         else:
@@ -242,7 +228,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[0].setYAxisLogarithmic(False)
         self.plot_canvas[0].setGraphXLabel(x_label)
         self.plot_canvas[0].setGraphYLabel(y_label)
-        self.plot_canvas[0].addCurve(x_values, y_values, title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[0].addCurve(x_values, self.eigenstates.occupation_number_array(), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
         #
         # plot all modes
@@ -260,7 +246,7 @@ class OWAFViewer(widget.OWWidget):
                                        "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
                                        "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax)])
         self.plot_canvas[1].setColormap(colormap=colormap)
-        self.plot_canvas[1].setStack(numpy.absolute(mystack)) # , origin=origin, scale=scale,  )
+        self.plot_canvas[1].setStack( myprocess(self.eigenstates.modes()) ) # , origin=origin, scale=scale,  )
         self.tab[1].layout().addWidget(self.plot_canvas[1])
 
         #
@@ -288,7 +274,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[2].setKeepDataAspectRatio(False)
 
 
-        self.plot_canvas[2].addImage(myprocess(mystack[self.MODE_TO_PLOT,:,:]),
+        self.plot_canvas[2].addImage(myprocess(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]),
                                                      legend="zio billy",
                                                      colormap=colormap,
                                                      replace=True,
@@ -301,7 +287,7 @@ class OWAFViewer(widget.OWWidget):
 
         from matplotlib.image import AxesImage
         image = AxesImage(self.plot_canvas[2]._backend.ax)
-        image.set_data(myprocess(mystack[self.MODE_TO_PLOT,:,:]))
+        image.set_data(myprocess(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]))
 
         self.plot_canvas[2]._backend.fig.colorbar(image, ax=self.plot_canvas[2]._backend.ax)
         self.plot_canvas[2].setGraphXLabel("X [um]")
@@ -332,9 +318,9 @@ if __name__ == '__main__':
     app = QtGui.QApplication([])
     ow = OWAFViewer()
 
-    filename = "/Users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/ph3_u18_3_17keV_s1.3_100modes.h5"
-    # filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3"
-    eigenstates = CompactH5Reader(filename)
+    filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/cs_new_u18_2m_1h_s2.5.h5"
+
+    eigenstates = CompactAFReader.initialize_from_file(filename)
 
     ow._set_input(eigenstates)
     ow.do_plot()

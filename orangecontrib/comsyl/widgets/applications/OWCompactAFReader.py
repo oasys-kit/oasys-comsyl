@@ -12,8 +12,7 @@ from oasys.widgets import widget as oasyswidget
 # from srxraylib.plot.gol import plot_image, plot
 # import sys
 
-from comsyl.scripts.CompactAFReader import CompactAFReader
-from orangecontrib.comsyl.scripts.CompactH5Reader import CompactH5Reader
+from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 
 class OWCompactAFReader(oasyswidget.OWWidget):
@@ -39,8 +38,6 @@ class OWCompactAFReader(oasyswidget.OWWidget):
 
     def __init__(self):
         super().__init__()
-
-        self.CompactReader = CompactH5Reader
 
         self.runaction = widget.OWAction("Read COMSYL Results from Files", self)
         self.runaction.triggered.connect(self.read_file)
@@ -70,25 +67,11 @@ class OWCompactAFReader(oasyswidget.OWWidget):
     def selectFile(self):
 
         filename = oasysgui.selectFileFromDialog(self,
-                previous_file_path=self.beam_file_name, message="Open COMSYL File [*.npy or *.npz or h5]",
+                previous_file_path=self.beam_file_name, message="Open COMSYL File [*.npy or *.npz or *.h5]",
                 start_directory=".", file_extension_filter="*.*")
 
-        filename_witout_extension = ('.').join(filename.split('.')[:-1])
-        file_extension = filename.split('.')[-1]
+        self.le_beam_file_name.setText(filename)
 
-        print("File extension is: ",file_extension)
-
-        if file_extension == "h5":
-            self.CompactReader = CompactH5Reader
-            self.le_beam_file_name.setText(filename)
-        elif file_extension == "npy":
-            self.CompactReader = CompactAFReader
-            self.le_beam_file_name.setText(filename_witout_extension)
-        elif file_extension == "npz":
-            self.CompactReader = CompactAFReader
-            self.le_beam_file_name.setText(filename_witout_extension)
-        else:
-            raise FileExistsError("Unknown file")
 
 
 
@@ -99,9 +82,9 @@ class OWCompactAFReader(oasyswidget.OWWidget):
             if congruence.checkFileName(self.beam_file_name):
 
                 try:
-                    reader = self.CompactReader(self.beam_file_name)
+                    reader = CompactAFReader.initialize_from_file(self.beam_file_name)
                 except:
-                    raise FileExistsError("Error loading COMSYL modes from file: %s.npy .npz"%self.beam_file_name)
+                    raise FileExistsError("Error loading COMSYL modes from file: %s"%self.beam_file_name)
 
                 print("File %s:" % self.beam_file_name)
                 print("contains")
