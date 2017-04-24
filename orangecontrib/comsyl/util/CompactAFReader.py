@@ -83,17 +83,25 @@ class CompactAFReader(object):
                     spectral_density    ,
                     photon_energy,)
 
-    def write_h5(self,filename_out):
+    def write_h5(self,filename_out,max_occupacy_percent=None):
 
         f = h5py.File(filename_out, 'w')
 
-
-        f['eigenvalues'     ] = self.eigenvalues()
-        f['modes'           ] = self.modes()
-        f['x_coordinates'   ] = self.x_coordinates()
-        f['y_coordinates'   ] = self.y_coordinates()
-        f['spectral_density'] = self.spectral_density()
-        f['photon_energy'   ] = self.photon_energy()
+        if max_occupacy_percent == None:
+            f['eigenvalues'     ] = self.eigenvalues()
+            f['modes'           ] = self.modes()
+            f['x_coordinates'   ] = self.x_coordinates()
+            f['y_coordinates'   ] = self.y_coordinates()
+            f['spectral_density'] = self.spectral_density()
+            f['photon_energy'   ] = self.photon_energy()
+        else:
+            nmax = 1 + self.mode_up_to_percent(max_occupacy_percent)
+            f['eigenvalues'     ] = self.eigenvalues()[0:nmax]
+            f['modes'           ] = self.modes()[0:nmax,:,:]
+            f['x_coordinates'   ] = self.x_coordinates()
+            f['y_coordinates'   ] = self.y_coordinates()
+            f['spectral_density'] = self.spectral_density()
+            f['photon_energy'   ] = self.photon_energy()
 
         f.close()
         print("File written to disk",filename_out)
@@ -152,45 +160,63 @@ class CompactAFReader(object):
         print("with total intensity in (maybe improper) normalization: %e" % self.total_intensity().real.sum())
 
         print("Occupation and max abs value of the mode")
+        percent = 0.0
         for i_mode in range(self.number_modes()):
             occupation = self.occupation_number(i_mode)
-            mode = self.mode(i_mode)
-            max_abs_value = np.abs(mode).max()
-            print("%i is %e %e" % (i_mode, occupation, max_abs_value))
+            # mode = self.mode(i_mode)
+            # max_abs_value = np.abs(mode).max()
+            percent += occupation
+            print("%i occupation: %e, accumulated percent: %12.10f" % (i_mode, occupation, 100*percent))
 
         print(">> Shape x,y,",self.x_coordinates().shape,self.y_coordinates().shape)
         print(">> Shape modes",self.modes().shape)
         print(">> Spectral density ",self.spectral_density().shape)
 
+        print("Modes index to 90 percent occupancy:",self.mode_up_to_percent(90.0))
+        print("Modes index to 95 percent occupancy:",self.mode_up_to_percent(95.0))
+        print("Modes index to 99 percent occupancy:",self.mode_up_to_percent(99.0))
+
+    def mode_up_to_percent(self,up_to_percent):
+
+        perunit = 0.0
+        for i_mode in range(self.number_modes()):
+            occupation = self.occupation_number(i_mode)
+            perunit += occupation
+            if 100*perunit >= up_to_percent:
+                return i_mode
+        raise Exception("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
+
 if __name__ == "__main__":
     import sys, os
-    # if len(sys.argv) > 1:
-    #     filename = sys.argv[1]
-    # else:
-    #     filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5"
-    #     filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5.h5"
-    #     filename = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/ph3_u18_3_17keV_s1.3"
-    #     filename = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/cs_new_u18_2m_1h_s2.5"
-    #     filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/cs_new_u18_2m_1h_s2.5.h5"
-    #
-    # reader = CompactAFReader.initialize_from_file(filename)
-    # reader.info()
-    #
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+    else:
+        filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5"
+        filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/new_u18_2m_1h_s2.5.h5"
+        filename = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/ph3_u18_3_17keV_s1.3"
+        filename = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/cs_new_u18_2m_1h_s2.5"
+        # filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/cs_new_u18_2m_1h_s2.5.h5"
+
+    reader = CompactAFReader.initialize_from_file(filename)
+    reader.info()
+
     # reader.write_h5("tmp.h5")
+    reader.write_h5("tmp20.h5",max_occupacy_percent=20.0)
 
-    file_in_path = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/"
-    file_out_path = "/scisoft/data/srio/COMSYL/CALCULATIONS/"
-
-    f = open("tmp",'r')
-    file_list = f.readlines()
-    f.close()
-    for file in file_list:
-
-        full_file = (file_in_path+file).rstrip()
-        print(">>>processing file: ",full_file)
-        filename_without_extension = ('.').join(file.rstrip().split('.')[:-1])
-        reader = CompactAFReader.initialize_from_file(full_file)
-        reader.write_h5(file_out_path+filename_without_extension+".h5")
-        # print("**"+filename_without_extension+"**")
+    # file_in_path = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/"
+    # file_out_path = "/scisoft/data/srio/COMSYL/CALCULATIONS/"
+    # file_out_path95 = "/scisoft/data/srio/COMSYL/CALCULATIONS95/"
+    #
+    # f = open("tmp",'r')
+    # file_list = f.readlines()
+    # f.close()
+    # for file in file_list:
+    #
+    #     full_file = (file_in_path+file).rstrip()
+    #     print(">>>processing file: ",full_file)
+    #     filename_without_extension = ('.').join(file.rstrip().split('.')[:-1])
+    #     reader = CompactAFReader.initialize_from_file(full_file)
+    #     reader.write_h5(file_out_path+filename_without_extension+".h5")
+    #     reader.write_h5(file_out_path95+filename_without_extension+".h5",max_occupacy_percent=95.0)
 
 

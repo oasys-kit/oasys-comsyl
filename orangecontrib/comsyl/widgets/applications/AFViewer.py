@@ -132,6 +132,14 @@ class OWAFViewer(widget.OWWidget):
         self.show_at(self.unitFlags()[idx], box1)
 
 
+        #widget index 2
+        idx += 1
+        box1 = gui.widgetBox(box)
+        self.info_energy = oasysgui.widgetLabel(box1, "Photon energy: ", labelWidth=250)
+        self.info_nmodes = oasysgui.widgetLabel(box1, "Number of modes: ", labelWidth=250)
+        # self.show_at(self.unitFlags()[idx], box1)
+
+
 
     def _set_input_and_do_plot(self, eigenstates):
         """This function is called when the widget receives an input."""
@@ -144,6 +152,8 @@ class OWAFViewer(widget.OWWidget):
             print("AFViewer: The viewer has received the data.")
             print("AFViewer: %d modes received.\n"%(eigenstates.number_modes()))
             self.eigenstates = eigenstates
+            self.info_energy.setText("Photon energy:   %5.3f eV"%eigenstates.photon_energy())
+            self.info_nmodes.setText("Number of modes: %d"%eigenstates.number_modes())
 
     def _square_modulus(self,array1):
         return (numpy.absolute(array1))**2
@@ -318,7 +328,7 @@ if __name__ == '__main__':
     app = QtGui.QApplication([])
     ow = OWAFViewer()
 
-    filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/cs_new_u18_2m_1h_s2.5.h5"
+    filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/workspaces/tmp20.h5"
 
     eigenstates = CompactAFReader.initialize_from_file(filename)
 
