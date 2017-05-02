@@ -27,7 +27,7 @@ class OWCompactAFReader(oasyswidget.OWWidget):
 
     want_main_area = 0
 
-    beam_file_name = Setting("/Users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/scripts/ph3_u18_3_17keV_s1.3_100modes.h5")
+    beam_file_name = Setting("../../workspaces/tmp20.h5")
 
     outputs = [{"name": "eigen-states",
                 "type": CompactAFReader,

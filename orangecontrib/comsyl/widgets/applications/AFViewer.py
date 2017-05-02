@@ -244,9 +244,10 @@ class OWAFViewer(widget.OWWidget):
         # plot all modes
         #
 
+        dim0_calib = (0, 1)
+        dim1_calib = (1e6*yy[0], 1e6*(yy[1]-yy[0]))
+        dim2_calib = (1e6*xx[0], 1e6*(xx[1]-xx[0]))
 
-        origin = (xmin, ymin)
-        scale = (abs((xmax-xmin)/len(self.eigenstates.x_coordinates())), abs((ymax-ymin)/len(self.eigenstates.y_coordinates())))
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
@@ -256,7 +257,8 @@ class OWAFViewer(widget.OWWidget):
                                        "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
                                        "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax)])
         self.plot_canvas[1].setColormap(colormap=colormap)
-        self.plot_canvas[1].setStack( myprocess(self.eigenstates.modes()) ) # , origin=origin, scale=scale,  )
+        self.plot_canvas[1].setStack( myprocess(numpy.swapaxes(self.eigenstates.modes(),2,1)),
+                                      calibrations=[dim0_calib, dim1_calib, dim2_calib] )
         self.tab[1].layout().addWidget(self.plot_canvas[1])
 
         #
@@ -265,6 +267,12 @@ class OWAFViewer(widget.OWWidget):
         origin = (1e6*xmin, 1e6*ymin)
         scale = (1e6*abs((xmax-xmin)/self.eigenstates.x_coordinates().size),
                  1e6*abs((ymax-ymin)/self.eigenstates.y_coordinates().size))
+
+        # origin = (0,0)
+        # scale = (1,1)
+        print("ZZ",self.eigenstates.modes().shape)
+        print("XX",xx.size,1e6*xx.min(),1e6*xx[0],1e6*xx.max(),1e6*xx[-1])
+        print("YY",yy.size,1e6*yy.min(),1e6*yy[0],1e6*yy.max(),1e6*yy[-1])
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
@@ -284,7 +292,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[2].setKeepDataAspectRatio(False)
 
 
-        self.plot_canvas[2].addImage(myprocess(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]),
+        self.plot_canvas[2].addImage(myprocess( (self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]).T ),
                                                      legend="zio billy",
                                                      colormap=colormap,
                                                      replace=True,
