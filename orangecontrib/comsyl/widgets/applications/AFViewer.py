@@ -337,6 +337,8 @@ if __name__ == '__main__':
     ow = OWAFViewer()
 
     filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/workspaces/tmp20.h5"
+    filename = "/users/srio/OASYS1_VE/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
+    # filename = "/users/srio/OASYS1_VE/oasys-comsyl/orangecontrib/comsyl/util/tmp20.h5"
 
     eigenstates = CompactAFReader.initialize_from_file(filename)
 
