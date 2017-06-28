@@ -24,6 +24,22 @@ class CompactAFReader(object):
         except:
             raise FileExistsError("Error reading file")
 
+    @classmethod
+    def convert_to_h5(cls,filename):
+        af = AutocorrelationFunction.load(filename)
+
+
+        filename_extension = filename.split('.')[-1]
+
+        if filename_extension == "h5":
+            print("File is already h5: nothing to convert")
+            return None
+
+        filename_without_extension = ('.').join(filename.split('.')[:-1])
+
+        af.saveh5(filename_without_extension+".h5")
+
+        return CompactAFReader(af)
 
     def spectral_density(self):
         return self._af.intensity()
@@ -77,6 +93,8 @@ class CompactAFReader(object):
         print("y: from %e to %e" % (self.y_coordinates().min(), self.y_coordinates().max()))
         print("calculated at %f eV" % self.photon_energy())
         print("with total intensity in (maybe improper) normalization: %e" % self.total_intensity().real.sum())
+        print("total intensity:", (np.absolute(self._af.intensity())**2).sum() )
+        print("total intensity from modes:" , (np.absolute(self._af.intensityFromModes())**2).sum() )
 
         print("Occupation and max abs value of the mode")
         percent = 0.0
@@ -108,37 +126,30 @@ class CompactAFReader(object):
                 return i_mode
         raise Exception("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
 
-def main():
-    print(">> reading npz file...")
-    af = AutocorrelationFunction.load("/scisoft/users/srio/Working/COMSYL/calculations/septest_cm_new_u18_2m_1h_s2.5.npz")
-    print(">> writing npz file...")
-    af.save("tmp.npz")
-    print(">> writing h5 file...")
-    af.saveh5("tmp.h5")
+    def get_dictionary(self):
+        return self._af.asDictionary()
 
+    def keys(self):
+        return self.get_dictionary().keys()
 
-    dd = af.asDictionary()
-    for key in dd.keys():
-        print(">> ",key,type(dd[key]))
+    def shape(self):
+        return self._af.Twoform().allVectors().shape
 
-    print(">> reading tmp.npz file...")
-    af = AutocorrelationFunction.load("tmp.npz")
-    print(">>shape: ",af.Twoform().allVectors().shape)
-    print(">> reading tmp.h5 file...")
-    af = AutocorrelationFunction.loadh5("tmp.h5")
-
-    print(">>shape: ",af.Twoform().allVectors().shape)
-
-
-    # af.showMode(1)
 
 if __name__ == "__main__":
-    # main()
-    af = CompactAFReader.initialize_from_file("tmp.h5")
-    print(">>shape: ",af._af.Twoform().allVectors().shape)
-    print(af.info())
-    pass
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
 
+    af = CompactAFReader.initialize_from_file(filename)
+
+    # af = CompactAFReader.convert_to_h5(filename)
+
+    print(af.info())
+
+    # d1 = af.get_dictionary()
+    # for key in af.keys():
+    #     print(key, d1[key])
 
 
 

@@ -1,12 +1,9 @@
-from PyQt4 import QtGui
-from PyQt4.QtGui import QIntValidator, QDoubleValidator, QApplication
-from PyQt4.QtCore import QRect
+from PyQt5.QtGui import QIntValidator, QDoubleValidator
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QRect
 
 from silx.gui.plot import PlotWindow, Plot2D
 from silx.gui.plot.StackView import StackViewMainWindow
-# import matplotlib.pyplot as plt
-# from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-
 
 import os
 import sys
@@ -333,12 +330,11 @@ if __name__ == '__main__':
 
 
 
-    app = QtGui.QApplication([])
+    app = QApplication([])
     ow = OWAFViewer()
 
-    filename = "/users/srio/OASYS_VE/oasys-comsyl/orangecontrib/comsyl/workspaces/tmp20.h5"
-    filename = "/users/srio/OASYS1_VE/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
-    # filename = "/users/srio/OASYS1_VE/oasys-comsyl/orangecontrib/comsyl/util/tmp20.h5"
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
 
     eigenstates = CompactAFReader.initialize_from_file(filename)
 
