@@ -65,6 +65,12 @@ class CompactAFReader(object):
     def eigenvalue(self,mode):
         return self._af.eigenvalue(mode)
 
+    def reference_electron_density(self):
+        return self._af.staticElectronDensity()
+
+    def reference_undulator_radiation(self):
+        return self._af.referenceWavefront().intensity_as_numpy()
+
     def photon_energy(self):
         return self._af.photonEnergy()
 
@@ -77,11 +83,12 @@ class CompactAFReader(object):
     def mode(self, i_mode):
         return self.modes[i_mode,:,:]
 
+
     def occupation_number(self, i_mode):
-        return self.eigenvalue(i_mode)/np.sum(self.eigenvalues())
+        return self.occupation_number_array()[i_mode]
 
     def occupation_number_array(self):
-        return self.eigenvalues()/np.sum(self.eigenvalues())
+        return self._af.modeDistribution()
 
 
     def info(self,list_modes=True):

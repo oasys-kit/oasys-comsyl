@@ -16,6 +16,8 @@ from oasys.widgets import gui as oasysgui
 
 from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
+from matplotlib.image import AxesImage
+
 class OWAFViewer(widget.OWWidget):
     name = "AFViewer"
     id = "orangecontrib.comsyl.widgets.applications.AFViewer"
@@ -154,8 +156,70 @@ class OWAFViewer(widget.OWWidget):
 
     def _square_modulus(self,array1):
         return (numpy.absolute(array1))**2
+
+
+
+
+
+    def do_plot_image_in_tab(self,input_data,tab_index,title=""):
+
+        xx = self.eigenstates.x_coordinates()
+        yy = self.eigenstates.y_coordinates()
+
+        xmin = numpy.min(xx)
+        xmax = numpy.max(xx)
+        ymin = numpy.min(yy)
+        ymax = numpy.max(yy)
+
+        origin = (1e6*xmin, 1e6*ymin)
+        scale = (1e6*abs((xmax-xmin)/self.eigenstates.x_coordinates().size),
+                 1e6*abs((ymax-ymin)/self.eigenstates.y_coordinates().size))
+
+        # origin = (0,0)
+        # scale = (1,1)
+        print("ZZ",self.eigenstates.modes().shape)
+        print("XX",xx.size,1e6*xx.min(),1e6*xx[0],1e6*xx.max(),1e6*xx[-1])
+        print("YY",yy.size,1e6*yy.min(),1e6*yy[0],1e6*yy.max(),1e6*yy[-1])
+
+        colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+
+
+        self.plot_canvas[tab_index] = Plot2D()
+        self.plot_canvas[tab_index].resetZoom()
+        self.plot_canvas[tab_index].setXAxisAutoScale(True)
+        self.plot_canvas[tab_index].setYAxisAutoScale(True)
+        self.plot_canvas[tab_index].setGraphGrid(False)
+        self.plot_canvas[tab_index].setKeepDataAspectRatio(True)
+        self.plot_canvas[tab_index].yAxisInvertedAction.setVisible(False)
+        self.plot_canvas[tab_index].setXAxisLogarithmic(False)
+        self.plot_canvas[tab_index].setYAxisLogarithmic(False)
+        self.plot_canvas[tab_index].getMaskAction().setVisible(False)
+        self.plot_canvas[tab_index].getRoiAction().setVisible(False)
+        self.plot_canvas[tab_index].getColormapAction().setVisible(False)
+        self.plot_canvas[tab_index].setKeepDataAspectRatio(False)
+
+
+        self.plot_canvas[tab_index].addImage( input_data,
+                                                     legend="zio billy",
+                                                     colormap=colormap,
+                                                     replace=True,
+                                                     origin=origin,
+                                                     scale=scale)
+
+        self.plot_canvas[tab_index].setActiveImage("zio billy")
+
+        image = AxesImage(self.plot_canvas[tab_index]._backend.ax)
+        image.set_data( input_data )
+
+        self.plot_canvas[tab_index]._backend.fig.colorbar(image, ax=self.plot_canvas[tab_index]._backend.ax)
+        self.plot_canvas[tab_index].setGraphXLabel("X [um]")
+        self.plot_canvas[tab_index].setGraphYLabel("Y [um]")
+        self.plot_canvas[tab_index].setGraphTitle(title)
+
+        self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
+
     def do_plot(self):
-        self.tab_titles = ["SPECTRUM","ALL MODES","MODE %d"%self.MODE_TO_PLOT]
+        self.tab_titles = ["SPECTRUM","ALL MODES","MODE %d"%self.MODE_TO_PLOT,"REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
         self.initializeTabs()
 
         for i in range(len(self.tab_titles)):
@@ -261,55 +325,28 @@ class OWAFViewer(widget.OWWidget):
         #
         # plot single mode
         #
-        origin = (1e6*xmin, 1e6*ymin)
-        scale = (1e6*abs((xmax-xmin)/self.eigenstates.x_coordinates().size),
-                 1e6*abs((ymax-ymin)/self.eigenstates.y_coordinates().size))
-
-        # origin = (0,0)
-        # scale = (1,1)
-        print("ZZ",self.eigenstates.modes().shape)
-        print("XX",xx.size,1e6*xx.min(),1e6*xx[0],1e6*xx.max(),1e6*xx[-1])
-        print("YY",yy.size,1e6*yy.min(),1e6*yy[0],1e6*yy.max(),1e6*yy[-1])
-
-        colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+        image = myprocess( (self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]).T)
+        self.do_plot_image_in_tab(image,2,title=title1)
 
 
-        self.plot_canvas[2] = Plot2D()
-        self.plot_canvas[2].resetZoom()
-        self.plot_canvas[2].setXAxisAutoScale(True)
-        self.plot_canvas[2].setYAxisAutoScale(True)
-        self.plot_canvas[2].setGraphGrid(False)
-        self.plot_canvas[2].setKeepDataAspectRatio(True)
-        self.plot_canvas[2].yAxisInvertedAction.setVisible(False)
-        self.plot_canvas[2].setXAxisLogarithmic(False)
-        self.plot_canvas[2].setYAxisLogarithmic(False)
-        self.plot_canvas[2].getMaskAction().setVisible(False)
-        self.plot_canvas[2].getRoiAction().setVisible(False)
-        self.plot_canvas[2].getColormapAction().setVisible(False)
-        self.plot_canvas[2].setKeepDataAspectRatio(False)
+        #
+        # plot reference electron density
+        #
+
+        image = numpy.abs( self.eigenstates.reference_electron_density().T )**2  #TODO: Correct? it is complex...
+        self.do_plot_image_in_tab(image,3,title="Reference electron density")
 
 
-        self.plot_canvas[2].addImage(myprocess( (self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]).T ),
-                                                     legend="zio billy",
-                                                     colormap=colormap,
-                                                     replace=True,
-                                                     origin=origin,
-                                                     scale=scale)
-
-        self.plot_canvas[2].setActiveImage("zio billy")
+        #
+        # plot reference undulator radiation
+        #
 
 
+        image = self.eigenstates.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
+        print(">>>>>",image.shape,image.dtype)
+        self.do_plot_image_in_tab(image,4,title="Reference undulator radiation")
 
-        from matplotlib.image import AxesImage
-        image = AxesImage(self.plot_canvas[2]._backend.ax)
-        image.set_data(myprocess(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]))
 
-        self.plot_canvas[2]._backend.fig.colorbar(image, ax=self.plot_canvas[2]._backend.ax)
-        self.plot_canvas[2].setGraphXLabel("X [um]")
-        self.plot_canvas[2].setGraphYLabel("Y [um]")
-        self.plot_canvas[2].setGraphTitle(title1)
-
-        self.tab[2].layout().addWidget(self.plot_canvas[2])
 
 
 
