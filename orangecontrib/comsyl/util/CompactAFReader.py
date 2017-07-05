@@ -10,10 +10,10 @@ class CompactAFReader(object):
     @classmethod
     def initialize_from_file(cls,filename):
         filename_extension = filename.split('.')[-1]
-
         try:
             if filename_extension == "h5":
-                return CompactAFReader(AutocorrelationFunction.loadh5(filename))
+                af = AutocorrelationFunction.loadh5(filename)
+                return CompactAFReader(af)
             elif filename_extension == "npz":
                 return CompactAFReader(AutocorrelationFunction.load(filename))
             elif filename_extension == "npy":
@@ -25,19 +25,23 @@ class CompactAFReader(object):
             raise FileExistsError("Error reading file")
 
     @classmethod
-    def convert_to_h5(cls,filename):
-        af = AutocorrelationFunction.load(filename)
-
+    def convert_to_h5(cls,filename,filename_out=None,maximum_number_of_modes=None):
 
         filename_extension = filename.split('.')[-1]
 
-        if filename_extension == "h5":
+        if filename_extension == "h5" and maximum_number_of_modes is None:
             print("File is already h5: nothing to convert")
             return None
 
-        filename_without_extension = ('.').join(filename.split('.')[:-1])
+        af = AutocorrelationFunction.load(filename)
 
-        af.saveh5(filename_without_extension+".h5")
+        if filename_out is None:
+
+            filename_without_extension = ('.').join(filename.split('.')[:-1])
+
+            filename_out = filename_without_extension+".h5"
+
+        af.saveh5(filename_out,maximum_number_of_modes=maximum_number_of_modes)
 
         return CompactAFReader(af)
 
@@ -131,7 +135,9 @@ class CompactAFReader(object):
             perunit += occupation
             if 100*perunit >= up_to_percent:
                 return i_mode
-        raise Exception("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
+
+        print("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
+        return -1
 
     def get_dictionary(self):
         return self._af.asDictionary()
@@ -146,13 +152,16 @@ class CompactAFReader(object):
 if __name__ == "__main__":
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
-    af = CompactAFReader.initialize_from_file(filename)
+    filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1hsampling4_s4.0.npz"
 
-    # af = CompactAFReader.convert_to_h5(filename)
+    # af = CompactAFReader.initialize_from_file(filename)
 
-    print(af.info())
+    af = CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=5000)
+
+    # print(af.info())
 
     # d1 = af.get_dictionary()
     # for key in af.keys():

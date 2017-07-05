@@ -36,7 +36,7 @@ class OWAFViewer(widget.OWWidget):
               ]
 
     TYPE_PRESENTATION = Setting(0) # 0=abs, 1=real, 2=phase
-    MODE_TO_PLOT = Setting(0)
+    # MODE_TO_PLOT = Setting(0)
 
 
     IMAGE_WIDTH = 760
@@ -80,7 +80,7 @@ class OWAFViewer(widget.OWWidget):
 
         self.tab = []
         self.tabs = gui.tabWidget(plot_tab)
-        self.tab_titles = ["SPECTRUM","ALL MODES","MODE %d"%self.MODE_TO_PLOT]
+        self.tab_titles = ["SPECTRUM","ALL MODES","MODE XX"]
         self.initializeTabs()
 
 
@@ -123,12 +123,12 @@ class OWAFViewer(widget.OWWidget):
 
 
         #widget index 1
-        idx += 1
-        box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "MODE_TO_PLOT",
-                     label=self.unitLabels()[idx], addSpace=False,
-                    valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=250)
-        self.show_at(self.unitFlags()[idx], box1)
+        # idx += 1
+        # box1 = gui.widgetBox(box)
+        # oasysgui.lineEdit(box1, self, "MODE_TO_PLOT",
+        #              label=self.unitLabels()[idx], addSpace=False,
+        #             valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=250)
+        # self.show_at(self.unitFlags()[idx], box1)
 
 
         #widget index 2
@@ -177,9 +177,9 @@ class OWAFViewer(widget.OWWidget):
 
         # origin = (0,0)
         # scale = (1,1)
-        print("ZZ",self.eigenstates.modes().shape)
-        print("XX",xx.size,1e6*xx.min(),1e6*xx[0],1e6*xx.max(),1e6*xx[-1])
-        print("YY",yy.size,1e6*yy.min(),1e6*yy[0],1e6*yy.max(),1e6*yy[-1])
+        # print("ZZ",self.eigenstates.modes().shape)
+        # print("XX",xx.size,1e6*xx.min(),1e6*xx[0],1e6*xx.max(),1e6*xx[-1])
+        # print("YY",yy.size,1e6*yy.min(),1e6*yy[0],1e6*yy.max(),1e6*yy[-1])
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
@@ -219,7 +219,7 @@ class OWAFViewer(widget.OWWidget):
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
     def do_plot(self):
-        self.tab_titles = ["SPECTRUM","ALL MODES","MODE %d"%self.MODE_TO_PLOT,"REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+        self.tab_titles = ["SPECTRUM","INDIVIDUAL MODES","SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
         self.initializeTabs()
 
         for i in range(len(self.tab_titles)):
@@ -260,10 +260,10 @@ class OWAFViewer(widget.OWWidget):
             ymin = numpy.min(yy)
             ymax = numpy.max(yy)
 
-            integral1 = ((numpy.absolute(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0])
-            integral1 = myprocess(self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]).sum()
+            integral1 = ((numpy.absolute(self.eigenstates.modes()[0,:,:]))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0])
+            integral1 = myprocess(self.eigenstates.modes()[0,:,:]).sum()
             integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
-            print("Integrated values for mode %d is %f"%(self.MODE_TO_PLOT,integral1))
+            print("Integrated values for mode %d is %f"%(0,integral1))
         else:
             print("Nothing to plot")
             return
@@ -323,10 +323,16 @@ class OWAFViewer(widget.OWWidget):
         self.tab[1].layout().addWidget(self.plot_canvas[1])
 
         #
-        # plot single mode
+        # plot spectral density
         #
-        image = myprocess( (self.eigenstates.modes()[self.MODE_TO_PLOT,:,:]).T)
-        self.do_plot_image_in_tab(image,2,title=title1)
+        image = myprocess( (self.eigenstates.spectral_density()).T)
+        self.do_plot_image_in_tab(image,2,title="Spectral Density (Intensity)")
+
+        #
+        # plot spectral density
+        #
+        image = myprocess( (self.eigenstates._af.intensityFromModes()).T)
+        self.do_plot_image_in_tab(image,3,title="Spectral Density (Intensity)")
 
 
         #
@@ -334,19 +340,15 @@ class OWAFViewer(widget.OWWidget):
         #
 
         image = numpy.abs( self.eigenstates.reference_electron_density().T )**2  #TODO: Correct? it is complex...
-        self.do_plot_image_in_tab(image,3,title="Reference electron density")
+        self.do_plot_image_in_tab(image,4,title="Reference electron density")
 
 
         #
         # plot reference undulator radiation
         #
-
-
         image = self.eigenstates.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
-        print(">>>>>",image.shape,image.dtype)
-        self.do_plot_image_in_tab(image,4,title="Reference undulator radiation")
-
-
+        print(">>>>>",self.eigenstates.reference_undulator_radiation().shape)
+        self.do_plot_image_in_tab(image,5,title="Reference undulator radiation")
 
 
 
@@ -370,8 +372,15 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWAFViewer()
 
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
+
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16a_ebs_u18_2m_1h_s2.5.h5"
+
+    filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3.npz"
+
+    filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.5.h5"
 
     eigenstates = CompactAFReader.initialize_from_file(filename)
 
