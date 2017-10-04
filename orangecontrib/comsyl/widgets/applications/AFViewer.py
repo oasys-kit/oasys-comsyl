@@ -299,7 +299,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[0].setYAxisLogarithmic(False)
         self.plot_canvas[0].setGraphXLabel(x_label)
         self.plot_canvas[0].setGraphYLabel(y_label)
-        self.plot_canvas[0].addCurve(x_values, self.eigenstates.occupation_number_array(), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[0].addCurve(x_values, self.eigenstates.occupation_array(), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
         #
         # plot all modes
@@ -374,13 +374,18 @@ if __name__ == '__main__':
 
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
     # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
+    filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16a_ebs_u18_2m_1h_s2.5.h5"
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16a_ebs_u18_2m_1h_s2.5.h5"
 
-    filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3.npz"
+    # filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3.npz"
+    #
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.5.h5"
 
-    filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.5.h5"
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
+
+
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_hb_u18_1400mm_1h_s0.5.h5"
 
     eigenstates = CompactAFReader.initialize_from_file(filename)
 

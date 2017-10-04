@@ -60,7 +60,7 @@ def load_stack(filename):
     mystack = numpy.zeros((reader.number_modes(),y.size,x.size),dtype=complex)
 
     for i_mode in range(reader.number_modes()):
-        eigenvalues[i_mode] = reader.occupation_number(i_mode)
+        eigenvalues[i_mode] = reader.occupation(i_mode)
         mode = reader.mode(i_mode)
         mystack[i_mode,:,:] = mode.T
 

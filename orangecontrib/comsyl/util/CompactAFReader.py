@@ -45,6 +45,48 @@ class CompactAFReader(object):
 
         return CompactAFReader(af)
 
+
+
+    @classmethod
+    def get_dictionary_without_modes_from_file(cls,filename):
+
+        filename_extension = filename.split('.')[-1]
+
+        data_dict = dict()
+
+        if filename_extension == "h5":
+            try:
+                h5f = h5py.File(filename,'r')
+            except:
+                raise Exception("Failed to read h5 file: %s"%filename)
+
+            for key in h5f.keys():
+                if (key !="twoform_4"):
+                    data_dict[key] = h5f[key].value
+        else:
+            if filename_extension == "npy":
+                filename_npz = filename.replace(".npy", "")+".npz"
+                file_content = np.load(filename_npz)
+            elif filename_extension == "npz":
+                file_content = np.load(filename)
+            else:
+                raise Exception("Unknown file type: %s"%filename)
+
+            for key in file_content.keys():
+                data_dict[key.replace("np_","")] = file_content[key]
+
+        return data_dict
+
+    @classmethod
+    def get_shape_from_file(cls,filename):
+
+        dict1 = CompactAFReader.get_dictionary_without_modes_from_file(filename)
+
+        vectors_shape = (dict1["twoform_3"].size,dict1["twoform_0"].size,dict1["twoform_1"].size)
+
+        return vectors_shape
+
+
     def spectral_density(self):
         return self._af.intensity()
 
@@ -78,8 +120,15 @@ class CompactAFReader(object):
     def photon_energy(self):
         return self._af.photonEnergy()
 
+    def total_intensity_from_spectral_density(self):
+        return self.spectral_density().real.sum()
+
     def total_intensity(self):
-        return self.spectral_density()
+
+        return (np.absolute(self._af.intensity())).sum()
+
+    def total_intensity_from_modes(self):
+        return (np.absolute(self._af.intensityFromModes())).sum()
 
     def number_modes(self):
         return self._af.numberModes()
@@ -87,35 +136,44 @@ class CompactAFReader(object):
     def mode(self, i_mode):
         return self.modes[i_mode,:,:]
 
-
-    def occupation_number(self, i_mode):
-        return self.occupation_number_array()[i_mode]
-
-    def occupation_number_array(self):
+    def occupation_array(self):
         return self._af.modeDistribution()
+
+    def occupation(self, i_mode):
+        return self.occupation_array()[i_mode]
+
+    def occupation_all_modes(self):
+        return self.occupation_array().real.sum()
+
+
 
 
     def info(self,list_modes=True):
         # print("File %s:" % filename)
         print("contains")
-        print("%i modes" % self.number_modes())
-        print("on the grid")
-        print("x: from %e to %e" % (self.x_coordinates().min(), self.x_coordinates().max()))
-        print("y: from %e to %e" % (self.y_coordinates().min(), self.y_coordinates().max()))
-        print("calculated at %f eV" % self.photon_energy())
-        print("with total intensity in (maybe improper) normalization: %e" % self.total_intensity().real.sum())
-        print("total intensity:", (np.absolute(self._af.intensity())**2).sum() )
-        print("total intensity from modes:" , (np.absolute(self._af.intensityFromModes())**2).sum() )
+
 
         print("Occupation and max abs value of the mode")
         percent = 0.0
         if list_modes:
             for i_mode in range(self.number_modes()):
-                occupation = self.occupation_number(i_mode)
+                occupation = self.occupation(i_mode)
                 # mode = self.mode(i_mode)
                 # max_abs_value = np.abs(mode).max()
                 percent += occupation
                 print("%i occupation: %e, accumulated percent: %12.10f" % (i_mode, occupation, 100*percent))
+
+
+        print("%i modes" % self.number_modes())
+        print("on the grid")
+        print("x: from %e to %e" % (self.x_coordinates().min(), self.x_coordinates().max()))
+        print("y: from %e to %e" % (self.y_coordinates().min(), self.y_coordinates().max()))
+        print("calculated at %f eV" % self.photon_energy())
+        print("total intensity from spectral density with (maybe improper) normalization: %e" % self.total_intensity_from_spectral_density())
+        print("total intensity:", self.total_intensity() )
+        print("total intensity from modes:" ,self.total_intensity_from_modes() )
+        print("Occupation of all modes:" , self.occupation_all_modes())
+
 
         print(">> Shape x,y,",self.x_coordinates().shape,self.y_coordinates().shape)
         print(">> Shape modes",self.modes().shape)
@@ -131,7 +189,7 @@ class CompactAFReader(object):
 
         perunit = 0.0
         for i_mode in range(self.number_modes()):
-            occupation = self.occupation_number(i_mode)
+            occupation = self.occupation(i_mode)
             perunit += occupation
             if 100*perunit >= up_to_percent:
                 return i_mode
@@ -151,18 +209,28 @@ class CompactAFReader(object):
 
 if __name__ == "__main__":
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
     # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
     # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
-    filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1hsampling4_s4.0.npz"
+    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1hsampling4_s4.0.h5"
+
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_hb_u18_1400mm_1h_s0.5.h5"
+
 
     # af = CompactAFReader.initialize_from_file(filename)
-
-    af = CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=5000)
-
     # print(af.info())
 
+
+    # print(CompactAFReader.get_dictionary_without_modes_from_file(filename))
+    # print("%s: "%filename,CompactAFReader.get_shape_from_file(filename))
+    # af = CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=5000)
+    af = CompactAFReader.convert_to_h5(filename,"tmp1.h5",maximum_number_of_modes=50)
+    # print(af.info())
+
+    af2 = CompactAFReader.initialize_from_file("tmp1.h5")
+
+    print(af2.info())
     # d1 = af.get_dictionary()
     # for key in af.keys():
     #     print(key, d1[key])
