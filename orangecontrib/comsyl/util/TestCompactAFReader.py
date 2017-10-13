@@ -69,20 +69,21 @@ def toc(text=""):
 if __name__ == "__main__":
 
     filename_h5 = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
-    af1  = CompactAFReader.initialize_from_file(filename_h5)
+    filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
+
+    filename_h5 = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
+    filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
+
+    af1  = CompactAFReader.initialize_from_file(filename_h5)
     tic()
     for i in range(600):
         print(i,af1.mode(i).sum())
     toc()
-
     print(af1.info())
 
 
-
-    filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
     af2  = CompactAFReader.initialize_from_file(filename_np)
-
     tic()
     for i in range(600):
         print(i,af2.mode(i).sum())

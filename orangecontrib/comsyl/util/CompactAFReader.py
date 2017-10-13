@@ -40,9 +40,13 @@ class CompactAFReader(object):
                 af = AutocorrelationFunction.fromDictionary(data_dict)
                 af._io._setWasFileLoaded(filename)
                 return CompactAFReader(af,data_dict,filename)
-            # elif filename_extension == "npy":
-            #     filename_without_extension = ('.').join(filename.split('.')[:-1])
-            #     return CompactAFReader(AutocorrelationFunction.load(filename_without_extension+".npz"))
+            elif filename_extension == "npy":
+                filename_without_extension = ('.').join(filename.split('.')[:-1])
+                filename_with_npz_extension = filename_without_extension+".npz"
+                data_dict = AutocorrelationFunctionIO.load(filename_with_npz_extension)
+                af = AutocorrelationFunction.fromDictionary(data_dict)
+                af._io._setWasFileLoaded(filename)
+                return CompactAFReader(af,data_dict,filename_with_npz_extension)
             else:
                 raise FileExistsError("Please enter a file with .npy, .npz or .h5 extension")
         except:
@@ -204,6 +208,25 @@ class CompactAFReader(object):
         else:
             raise Exception("Unknown format for mode stokage.")
 
+    def modes(self):
+        p = self._data_dict["twoform_4"]
+        if isinstance(p,h5py._hl.dataset.Dataset):
+            try:
+                return self._data_dict["twoform_4"]
+            except:
+                raise Exception("Problem accessing data in h5 file: %s"%self._filename)
+        elif isinstance(p,TwoformVectorsEigenvectors):
+            try:
+                return self._af.Twoform().allVectors()
+            except:
+                raise Exception("Problem accessing data in numpy file: %s"%self._filename)
+        else:
+            raise Exception("Unknown format for mode stokage.")
+
+
+
+
+
     def number_modes(self):
         return self.eigenvalues().size
 
@@ -212,11 +235,19 @@ class CompactAFReader(object):
         return (self.number_modes(), self.x_coordinates().size, self.y_coordinates().size)
 
     def total_intensity_from_modes(self):
-        intensity = np.zeros_like(self.mode(0))
+        # intensity = np.zeros_like(self.mode(0))
+        #
+        # for i_e, eigenvalue in enumerate(self.eigenvalues()):
+        #     intensity += eigenvalue * (np.abs(self.mode(i_e))**2)
+        # return np.abs(intensity).sum()
+        return self.intensity_from_modes().sum()
 
+    def intensity_from_modes(self):
+        intensity = np.zeros_like(self.mode(0))
         for i_e, eigenvalue in enumerate(self.eigenvalues()):
-            intensity += eigenvalue * (np.abs(self.mode(i_e))**2)
-        return np.abs(intensity).sum()
+            intensity += eigenvalue * np.abs(self.mode(i_e))**2
+        return np.abs(intensity)
+
 
     def keys(self):
         return self._data_dict.keys()
@@ -267,53 +298,26 @@ class CompactAFReader(object):
         print("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
         return -1
 
-#
-# auxiliary functions
-#
-def test_equal(af1,af2):
-        np.testing.assert_almost_equal(af1.eigenvalue(5),af2.eigenvalue(5))
-        np.testing.assert_almost_equal(af1.eigenvalue(5),af2.eigenvalue(5))
-        np.testing.assert_almost_equal(af1.photon_energy(),af2.photon_energy())
-        np.testing.assert_almost_equal(af1.total_intensity_from_spectral_density(),af2.total_intensity_from_spectral_density())
-        np.testing.assert_almost_equal(af1.total_intensity(),af2.total_intensity())
-        np.testing.assert_almost_equal(af1.number_modes(),af2.number_modes())
-        np.testing.assert_almost_equal(af1.eigenvalues(), af2.eigenvalues())
-        np.testing.assert_almost_equal(af1.x_coordinates(), af2.x_coordinates())
-        np.testing.assert_almost_equal(af1.y_coordinates(), af2.y_coordinates())
-        np.testing.assert_almost_equal(af1.spectral_density(), af2.spectral_density())
-        np.testing.assert_almost_equal(af1.reference_electron_density(), af2.reference_electron_density())
-        np.testing.assert_almost_equal(af1.reference_undulator_radiation(), af2.reference_undulator_radiation())
-        np.testing.assert_almost_equal(af1.mode(25), af2.mode(25))
-        np.testing.assert_almost_equal(af1.shape, af2.shape)
+    @classmethod
+    def convert_to_h5(cls,filename,filename_out=None,maximum_number_of_modes=None):
 
-        np.testing.assert_almost_equal(af1.total_intensity_from_modes(),af2.total_intensity_from_modes()) #SLOW
+        filename_extension = filename.split('.')[-1]
 
-def print_scattered_info(af1,af2=None):
-        if af2 is None:
-            af2 = af1
+        if filename_extension == "h5" and maximum_number_of_modes is None:
+            print("File is already h5: nothing to convert")
+            return None
 
-        print("File is: ",af1._filename,af2._filename)
-        print("Eigenvalue 5: ",af1.eigenvalue(5),af2.eigenvalue(5))
-        print("photon_energy : ",af1.photon_energy(),af2.photon_energy())
-        print("total_intensity_from_spectral_density : ",af1.total_intensity_from_spectral_density(),af2.total_intensity_from_spectral_density())
-        print("total_intensity : ",af1.total_intensity(),af2.total_intensity())
-        print("number_modes : ",af1.number_modes(),af2.number_modes())
+        af = cls.initialize_from_file(filename)
 
-        print("Eigenvalues shape: ",                  af1.eigenvalues().shape, af2.eigenvalues().shape)
-        print("x_coordinates shape: ",                af1.x_coordinates().shape, af2.x_coordinates().shape)
-        print("y_coordinates shape: ",                af1.y_coordinates().shape, af2.y_coordinates().shape)
-        print("spectral_density shape: ",             af1.spectral_density().shape, af2.spectral_density().shape)
-        print("reference_electron_density shape: ",   af1.reference_electron_density().shape, af2.reference_electron_density().shape)
-        print("reference_undulator_radiation shape: ",af1.reference_undulator_radiation().shape, af2.reference_undulator_radiation().shape)
-        print("mode 25 shape: ",                      af1.mode(25).shape, af2.mode(25).shape)
-        print("shape : ",                             af1.shape, af2.shape)
+        if filename_out is None:
 
-        print("keys : ",af1.keys(),af2.keys())
-        print("total_intensity_from_modes [SLOW]: ",af1.total_intensity_from_modes(),af2.total_intensity_from_modes())
+            filename_without_extension = ('.').join(filename.split('.')[:-1])
 
-        af1.close_h5_file()
-        af2.close_h5_file()
-        # print("mode 25 shape: ",af2.mode(25).shape)  # should fail after closing
+            filename_out = filename_without_extension+".h5"
+
+        af._af.saveh5(filename_out,maximum_number_of_modes=maximum_number_of_modes)
+
+        return CompactAFReader(af)
 
 
 

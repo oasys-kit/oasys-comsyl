@@ -260,8 +260,8 @@ class OWAFViewer(widget.OWWidget):
             ymin = numpy.min(yy)
             ymax = numpy.max(yy)
 
-            integral1 = ((numpy.absolute(self.eigenstates.modes()[0,:,:]))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0])
-            integral1 = myprocess(self.eigenstates.modes()[0,:,:]).sum()
+            integral1 = ((numpy.absolute(self.eigenstates.mode(0))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0]))
+            integral1 = myprocess(self.eigenstates.mode(0)).sum()
             integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
             print("Integrated values for mode %d is %f"%(0,integral1))
         else:
@@ -318,6 +318,7 @@ class OWAFViewer(widget.OWWidget):
                                        "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
                                        "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax)])
         self.plot_canvas[1].setColormap(colormap=colormap)
+
         self.plot_canvas[1].setStack( myprocess(numpy.swapaxes(self.eigenstates.modes(),2,1)),
                                       calibrations=[dim0_calib, dim1_calib, dim2_calib] )
         self.tab[1].layout().addWidget(self.plot_canvas[1])
@@ -331,7 +332,7 @@ class OWAFViewer(widget.OWWidget):
         #
         # plot spectral density
         #
-        image = myprocess( (self.eigenstates._af.intensityFromModes()).T)
+        image = myprocess( (self.eigenstates.intensity_from_modes()).T)
         self.do_plot_image_in_tab(image,3,title="Spectral Density (Intensity)")
 
 
@@ -347,7 +348,6 @@ class OWAFViewer(widget.OWWidget):
         # plot reference undulator radiation
         #
         image = self.eigenstates.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
-        print(">>>>>",self.eigenstates.reference_undulator_radiation().shape)
         self.do_plot_image_in_tab(image,5,title="Reference undulator radiation")
 
 
@@ -372,20 +372,15 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWAFViewer()
 
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16a_ebs_u18_2m_1h_s2.5.h5"
-
-    # filename = "/users/srio/OASYS_VE/comsyl_srio/calculations/ph3_u18_3_17keV_s1.3.npz"
-    #
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.5.h5"
-
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
+    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.npz"
+    # CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=100)
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.h5"
 
 
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_hb_u18_1400mm_1h_s0.5.h5"
 
     eigenstates = CompactAFReader.initialize_from_file(filename)
 
