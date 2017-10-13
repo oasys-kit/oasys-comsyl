@@ -1,115 +1,168 @@
-import numpy as np
 import h5py
-from comsyl.autocorrelation.AutocorrelationFunction import AutocorrelationFunction
+import numpy as np
+
+from comsyl.autocorrelation.AutocorrelationFunction import AutocorrelationFunction, AutocorrelationFunctionIO
+from comsyl.autocorrelation.SigmaMatrix import SigmaMatrix
+from comsyl.autocorrelation.AutocorrelationInfo import AutocorrelationInfo
+from comsyl.math.Twoform import Twoform
+from comsyl.waveoptics.Wavefront import NumpyWavefront
+from comsyl.autocorrelation.AutocorrelationFunctionIO import undulator_from_numpy_array
+from comsyl.math.TwoformVectors import TwoformVectorsEigenvectors
+
 
 class CompactAFReader(object):
-    def __init__(self,af):
-
+    def __init__(self, af=None, data_dict=None, filename=None, h5f=None):
         self._af   = af
+        self._data_dict = data_dict
+        self._filename = filename
+        self._h5f = h5f
+
+    def __del__(self):
+        self.close_h5_file()
+
+    @classmethod
+    def initialize_from_h5_file(cls,filename):
+        # data_dict = AutocorrelationFunctionIO.loadh5(filename)
+        data_dict, h5f = cls.loadh5_to_dictionaire(filename)
+        # af = AutocorrelationFunction.fromDictionary(data_dict)
+        af = cls.fromDictionary(data_dict)
+        return CompactAFReader(af,data_dict,filename,h5f)
+
 
     @classmethod
     def initialize_from_file(cls,filename):
         filename_extension = filename.split('.')[-1]
         try:
             if filename_extension == "h5":
-                af = AutocorrelationFunction.loadh5(filename)
-                return CompactAFReader(af)
+                return cls.initialize_from_h5_file(filename)
             elif filename_extension == "npz":
-                return CompactAFReader(AutocorrelationFunction.load(filename))
-            elif filename_extension == "npy":
-                filename_without_extension = ('.').join(filename.split('.')[:-1])
-                return CompactAFReader(AutocorrelationFunction.load(filename_without_extension+".npz"))
+                data_dict = AutocorrelationFunctionIO.load(filename)
+                af = AutocorrelationFunction.fromDictionary(data_dict)
+                af._io._setWasFileLoaded(filename)
+                return CompactAFReader(af,data_dict,filename)
+            # elif filename_extension == "npy":
+            #     filename_without_extension = ('.').join(filename.split('.')[:-1])
+            #     return CompactAFReader(AutocorrelationFunction.load(filename_without_extension+".npz"))
             else:
                 raise FileExistsError("Please enter a file with .npy, .npz or .h5 extension")
         except:
             raise FileExistsError("Error reading file")
 
-    @classmethod
-    def convert_to_h5(cls,filename,filename_out=None,maximum_number_of_modes=None):
-
-        filename_extension = filename.split('.')[-1]
-
-        if filename_extension == "h5" and maximum_number_of_modes is None:
-            print("File is already h5: nothing to convert")
-            return None
-
-        af = AutocorrelationFunction.load(filename)
-
-        if filename_out is None:
-
-            filename_without_extension = ('.').join(filename.split('.')[:-1])
-
-            filename_out = filename_without_extension+".h5"
-
-        af.saveh5(filename_out,maximum_number_of_modes=maximum_number_of_modes)
-
-        return CompactAFReader(af)
-
 
 
     @classmethod
-    def get_dictionary_without_modes_from_file(cls,filename):
-
-        filename_extension = filename.split('.')[-1]
+    def loadh5_to_dictionaire(cls,filename):
+        try:
+            h5f = h5py.File(filename,'r')
+        except:
+            raise Exception("Failed to read h5 file: %s"%filename)
 
         data_dict = dict()
 
-        if filename_extension == "h5":
-            try:
-                h5f = h5py.File(filename,'r')
-            except:
-                raise Exception("Failed to read h5 file: %s"%filename)
-
-            for key in h5f.keys():
-                if (key !="twoform_4"):
-                    data_dict[key] = h5f[key].value
-        else:
-            if filename_extension == "npy":
-                filename_npz = filename.replace(".npy", "")+".npz"
-                file_content = np.load(filename_npz)
-            elif filename_extension == "npz":
-                file_content = np.load(filename)
+        for key in h5f.keys():
+            if (key !="twoform_4"):
+                data_dict[key] = h5f[key].value
             else:
-                raise Exception("Unknown file type: %s"%filename)
+                data_dict[key] = h5f[key] # TwoformVectorsEigenvectors(h5f[key])
+        # IMPORTANT: DO NOT CLOSE FILE
+        # h5f.close()
+        return data_dict, h5f
 
-            for key in file_content.keys():
-                data_dict[key.replace("np_","")] = file_content[key]
+    @staticmethod
+    def fromDictionary(data_dict):
 
-        return data_dict
+        sigma_matrix = SigmaMatrix.fromNumpyArray(data_dict["sigma_matrix"])
+        undulator = undulator_from_numpy_array(data_dict["undulator"])
+        detuning_parameter = data_dict["detuning_parameter"][0]
+        energy = data_dict["energy"][0]
 
-    @classmethod
-    def get_shape_from_file(cls,filename):
-
-        dict1 = CompactAFReader.get_dictionary_without_modes_from_file(filename)
-
-        vectors_shape = (dict1["twoform_3"].size,dict1["twoform_0"].size,dict1["twoform_1"].size)
-
-        return vectors_shape
+        electron_beam_energy = data_dict["electron_beam_energy"][0]
 
 
-    def spectral_density(self):
-        return self._af.intensity()
+        np_wavefront_0=data_dict["wavefront_0"]
+        np_wavefront_1=data_dict["wavefront_1"]
+        np_wavefront_2=data_dict["wavefront_2"]
+        wavefront = NumpyWavefront.fromNumpyArray(np_wavefront_0, np_wavefront_1, np_wavefront_2)
 
-    def x_coordinates(self):
-        """
-        Horizontal dimension.
-        """
-        return self._af.xCoordinates()
+        try:
+            np_exit_slit_wavefront_0=data_dict["exit_slit_wavefront_0"]
+            np_exit_slit_wavefront_1=data_dict["exit_slit_wavefront_1"]
+            np_exit_slit_wavefront_2=data_dict["exit_slit_wavefront_2"]
+            exit_slit_wavefront = NumpyWavefront.fromNumpyArray(np_exit_slit_wavefront_0, np_exit_slit_wavefront_1, np_exit_slit_wavefront_2)
+        except:
+            exit_slit_wavefront = wavefront.clone()
 
-    def y_coordinates(self):
-        """
-        Vertical dimension.
-        """
-        return self._af.yCoordinates()
+        try:
+            weighted_fields = data_dict["weighted_fields"]
+        except:
+            weighted_fields = None
 
-    def modes(self):
-        return self._af.Twoform().allVectors()
+
+
+        srw_wavefront_rx=data_dict["srw_wavefront_rx"][0]
+        srw_wavefront_ry=data_dict["srw_wavefront_ry"][0]
+
+        srw_wavefront_drx = data_dict["srw_wavefront_drx"][0]
+        srw_wavefront_dry = data_dict["srw_wavefront_dry"][0]
+
+        info_string = str(data_dict["info"])
+        info = AutocorrelationInfo.fromString(info_string)
+
+
+        sampling_factor=data_dict["sampling_factor"][0]
+        minimal_size=data_dict["minimal_size"][0]
+
+        beam_energies = data_dict["beam_energies"]
+
+        static_electron_density = data_dict["static_electron_density"]
+        coordinates_x = data_dict["twoform_0"]
+        coordinates_y = data_dict["twoform_1"]
+        diagonal_elements = data_dict["twoform_2"]
+        eigenvalues = data_dict["twoform_3"]
+
+        # do not read the big array with modes
+        twoform_vectors = None # data_dict["twoform_4"]
+
+        twoform = Twoform(coordinates_x, coordinates_y, diagonal_elements, eigenvalues, twoform_vectors)
+
+        eigenvector_errors = data_dict["twoform_5"]
+
+        twoform.setEigenvectorErrors(eigenvector_errors)
+
+        af = AutocorrelationFunction(sigma_matrix, undulator, detuning_parameter,energy,electron_beam_energy,
+                                     wavefront,exit_slit_wavefront,srw_wavefront_rx, srw_wavefront_drx, srw_wavefront_ry, srw_wavefront_dry,
+                                     sampling_factor,minimal_size, beam_energies, weighted_fields,
+                                     static_electron_density, twoform,
+                                     info)
+
+        af._x_coordinates = coordinates_x
+        af._y_coordinates = coordinates_y
+
+        af._intensity = diagonal_elements.reshape(len(coordinates_x), len(coordinates_y))
+
+        return af
+
+
+    def close_h5_file(self):
+        try:
+            self._h5f.close()
+        except:
+            pass
 
     def eigenvalues(self):
         return self._af.eigenvalues()
 
     def eigenvalue(self,mode):
         return self._af.eigenvalue(mode)
+
+    def x_coordinates(self):
+        return self._af.xCoordinates()
+
+    def y_coordinates(self):
+        return self._af.yCoordinates()
+
+    def spectral_density(self):
+        return self._af.intensity()
 
     def reference_electron_density(self):
         return self._af.staticElectronDensity()
@@ -124,17 +177,7 @@ class CompactAFReader(object):
         return self.spectral_density().real.sum()
 
     def total_intensity(self):
-
         return (np.absolute(self._af.intensity())).sum()
-
-    def total_intensity_from_modes(self):
-        return (np.absolute(self._af.intensityFromModes())).sum()
-
-    def number_modes(self):
-        return self._af.numberModes()
-
-    def mode(self, i_mode):
-        return self.modes[i_mode,:,:]
 
     def occupation_array(self):
         return self._af.modeDistribution()
@@ -146,44 +189,71 @@ class CompactAFReader(object):
         return self.occupation_array().real.sum()
 
 
+    def mode(self, i_mode):
+        p = self._data_dict["twoform_4"]
+        if isinstance(p,h5py._hl.dataset.Dataset):
+            try:
+                return p[i_mode,:,:]
+            except:
+                raise Exception("Problem accessing data in h5 file: %s"%self._filename)
+        elif isinstance(p,TwoformVectorsEigenvectors):
+            try:
+                return self._af.Twoform().vector(i_mode) #AllVectors[i_mode,:,:]
+            except:
+                raise Exception("Problem accessing data in numpy file: %s"%self._filename)
+        else:
+            raise Exception("Unknown format for mode stokage.")
 
+    def number_modes(self):
+        return self.eigenvalues().size
+
+    @property
+    def shape(self):
+        return (self.number_modes(), self.x_coordinates().size, self.y_coordinates().size)
+
+    def total_intensity_from_modes(self):
+        intensity = np.zeros_like(self.mode(0))
+
+        for i_e, eigenvalue in enumerate(self.eigenvalues()):
+            intensity += eigenvalue * (np.abs(self.mode(i_e))**2)
+        return np.abs(intensity).sum()
+
+    def keys(self):
+        return self._data_dict.keys()
 
     def info(self,list_modes=True):
-        # print("File %s:" % filename)
-        print("contains")
+        txt = "contains\n"
 
 
-        print("Occupation and max abs value of the mode")
+        txt += "Occupation and max abs value of the mode\n"
         percent = 0.0
         if list_modes:
             for i_mode in range(self.number_modes()):
-                occupation = self.occupation(i_mode)
-                # mode = self.mode(i_mode)
-                # max_abs_value = np.abs(mode).max()
+                occupation = np.abs(self.occupation(i_mode))
                 percent += occupation
-                print("%i occupation: %e, accumulated percent: %12.10f" % (i_mode, occupation, 100*percent))
+                txt += "%i occupation: %e, accumulated percent: %12.10f\n" % (i_mode, occupation, 100*percent)
 
 
-        print("%i modes" % self.number_modes())
-        print("on the grid")
-        print("x: from %e to %e" % (self.x_coordinates().min(), self.x_coordinates().max()))
-        print("y: from %e to %e" % (self.y_coordinates().min(), self.y_coordinates().max()))
-        print("calculated at %f eV" % self.photon_energy())
-        print("total intensity from spectral density with (maybe improper) normalization: %e" % self.total_intensity_from_spectral_density())
-        print("total intensity:", self.total_intensity() )
-        print("total intensity from modes:" ,self.total_intensity_from_modes() )
-        print("Occupation of all modes:" , self.occupation_all_modes())
+        txt += "%i modes\n" % self.number_modes()
+        txt += "on the grid\n"
+        txt += "x: from %e to %e\n" % (self.x_coordinates().min(), self.x_coordinates().max())
+        txt += "y: from %e to %e\n" % (self.y_coordinates().min(), self.y_coordinates().max())
+        txt += "calculated at %f eV\n" % self.photon_energy()
+        txt += "total intensity from spectral density with (maybe improper) normalization: %e\n" % self.total_intensity_from_spectral_density()
+        txt += "total intensity: %g\n"%self.total_intensity()
+        txt += "total intensity from modes: %g\n"%self.total_intensity_from_modes()
+        txt += "Occupation of all modes: %g\n"%self.occupation_all_modes()
+        txt += ">> Shape x,y, (%d,%d)\n"%(self.x_coordinates().size,self.y_coordinates().size)
+        txt += ">> Shape Spectral density "+repr(self.spectral_density().shape)+"\n"
+        txt += ">> Shape Photon Energy "+repr(self.photon_energy().shape)+"\n"
+        txt += "Modes index to 90 percent occupancy: %d\n"%self.mode_up_to_percent(90.0)
+        txt += "Modes index to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
+        txt += "Modes index to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
 
+        # print(">> Shape modes",self.modes().shape)
+        # print(">> Shape modes  %d bytes, %6.2f Gigabytes: "%(self.modes().nbytes,self.modes().nbytes/(1024**3)))
 
-        print(">> Shape x,y,",self.x_coordinates().shape,self.y_coordinates().shape)
-        print(">> Shape modes",self.modes().shape)
-        print(">> Shape Spectral density ",self.spectral_density().shape)
-        print(">> Shape Photon Energy ",self.photon_energy().shape)
-
-        print("Modes index to 90 percent occupancy:",self.mode_up_to_percent(90.0))
-        print("Modes index to 95 percent occupancy:",self.mode_up_to_percent(95.0))
-        print("Modes index to 99 percent occupancy:",self.mode_up_to_percent(99.0))
-
+        return txt
 
     def mode_up_to_percent(self,up_to_percent):
 
@@ -197,43 +267,54 @@ class CompactAFReader(object):
         print("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
         return -1
 
-    def get_dictionary(self):
-        return self._af.asDictionary()
+#
+# auxiliary functions
+#
+def test_equal(af1,af2):
+        np.testing.assert_almost_equal(af1.eigenvalue(5),af2.eigenvalue(5))
+        np.testing.assert_almost_equal(af1.eigenvalue(5),af2.eigenvalue(5))
+        np.testing.assert_almost_equal(af1.photon_energy(),af2.photon_energy())
+        np.testing.assert_almost_equal(af1.total_intensity_from_spectral_density(),af2.total_intensity_from_spectral_density())
+        np.testing.assert_almost_equal(af1.total_intensity(),af2.total_intensity())
+        np.testing.assert_almost_equal(af1.number_modes(),af2.number_modes())
+        np.testing.assert_almost_equal(af1.eigenvalues(), af2.eigenvalues())
+        np.testing.assert_almost_equal(af1.x_coordinates(), af2.x_coordinates())
+        np.testing.assert_almost_equal(af1.y_coordinates(), af2.y_coordinates())
+        np.testing.assert_almost_equal(af1.spectral_density(), af2.spectral_density())
+        np.testing.assert_almost_equal(af1.reference_electron_density(), af2.reference_electron_density())
+        np.testing.assert_almost_equal(af1.reference_undulator_radiation(), af2.reference_undulator_radiation())
+        np.testing.assert_almost_equal(af1.mode(25), af2.mode(25))
+        np.testing.assert_almost_equal(af1.shape, af2.shape)
 
-    def keys(self):
-        return self.get_dictionary().keys()
+        np.testing.assert_almost_equal(af1.total_intensity_from_modes(),af2.total_intensity_from_modes()) #SLOW
 
-    def shape(self):
-        return self._af.Twoform().allVectors().shape
+def print_scattered_info(af1,af2=None):
+        if af2 is None:
+            af2 = af1
 
+        print("File is: ",af1._filename,af2._filename)
+        print("Eigenvalue 5: ",af1.eigenvalue(5),af2.eigenvalue(5))
+        print("photon_energy : ",af1.photon_energy(),af2.photon_energy())
+        print("total_intensity_from_spectral_density : ",af1.total_intensity_from_spectral_density(),af2.total_intensity_from_spectral_density())
+        print("total_intensity : ",af1.total_intensity(),af2.total_intensity())
+        print("number_modes : ",af1.number_modes(),af2.number_modes())
 
-if __name__ == "__main__":
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
+        print("Eigenvalues shape: ",                  af1.eigenvalues().shape, af2.eigenvalues().shape)
+        print("x_coordinates shape: ",                af1.x_coordinates().shape, af2.x_coordinates().shape)
+        print("y_coordinates shape: ",                af1.y_coordinates().shape, af2.y_coordinates().shape)
+        print("spectral_density shape: ",             af1.spectral_density().shape, af2.spectral_density().shape)
+        print("reference_electron_density shape: ",   af1.reference_electron_density().shape, af2.reference_electron_density().shape)
+        print("reference_undulator_radiation shape: ",af1.reference_undulator_radiation().shape, af2.reference_undulator_radiation().shape)
+        print("mode 25 shape: ",                      af1.mode(25).shape, af2.mode(25).shape)
+        print("shape : ",                             af1.shape, af2.shape)
 
-    # filename = "/scisoft/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1hsampling4_s4.0.h5"
+        print("keys : ",af1.keys(),af2.keys())
+        print("total_intensity_from_modes [SLOW]: ",af1.total_intensity_from_modes(),af2.total_intensity_from_modes())
 
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_hb_u18_1400mm_1h_s0.5.h5"
+        af1.close_h5_file()
+        af2.close_h5_file()
+        # print("mode 25 shape: ",af2.mode(25).shape)  # should fail after closing
 
-
-    # af = CompactAFReader.initialize_from_file(filename)
-    # print(af.info())
-
-
-    # print(CompactAFReader.get_dictionary_without_modes_from_file(filename))
-    # print("%s: "%filename,CompactAFReader.get_shape_from_file(filename))
-    # af = CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=5000)
-    af = CompactAFReader.convert_to_h5(filename,"tmp1.h5",maximum_number_of_modes=50)
-    # print(af.info())
-
-    af2 = CompactAFReader.initialize_from_file("tmp1.h5")
-
-    print(af2.info())
-    # d1 = af.get_dictionary()
-    # for key in af.keys():
-    #     print(key, d1[key])
 
 
 
