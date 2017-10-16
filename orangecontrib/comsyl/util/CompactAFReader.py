@@ -225,10 +225,11 @@ class CompactAFReader(object):
 
 
 
-
+    def number_of_modes(self):
+        return self.eigenvalues().size
 
     def number_modes(self):
-        return self.eigenvalues().size
+        return self.number_of_modes()
 
     @property
     def shape(self):

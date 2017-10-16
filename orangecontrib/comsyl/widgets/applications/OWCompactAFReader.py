@@ -42,12 +42,11 @@ class OWCompactAFReader(oasyswidget.OWWidget):
                                          width=570, height=60)
 
         figure_box = oasysgui.widgetBox(left_box_1, "", addSpace=True, orientation="horizontal", width=550, height=50)
-
         self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "beam_file_name", "COMSYL File Name Root",
                                                     labelWidth=120, valueType=str, orientation="horizontal")
         self.le_beam_file_name.setFixedWidth(330)
-
         gui.button(figure_box, self, "...", callback=self.selectFile)
+
 
         gui.separator(left_box_1, height=20)
 
@@ -63,7 +62,6 @@ class OWCompactAFReader(oasyswidget.OWWidget):
                 start_directory=".", file_extension_filter="*.*")
 
         self.le_beam_file_name.setText(filename)
-
 
 
 

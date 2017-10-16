@@ -12,11 +12,15 @@ import numpy
 from orangewidget import gui
 from orangewidget.settings import Setting
 from oasys.widgets import widget
+from oasys.widgets import congruence
 from oasys.widgets import gui as oasysgui
 
 from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 from matplotlib.image import AxesImage
+
+from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
+
 
 class OWAFViewer(widget.OWWidget):
     name = "AFViewer"
@@ -27,17 +31,18 @@ class OWAFViewer(widget.OWWidget):
     maintainer_email = "srio@esrf.fr"
     priority = 40
     category = ""
-    keywords = ["AFViewer", "COMSYL", "EigenStates"]
-    inputs = [{"name": "eigen-states",
-                "type": CompactAFReader,
-                "doc": "Coherent Modes Data",
-                "id": "eigen-states",
-                "handler": "_set_input_and_do_plot"},
-              ]
+    keywords = ["AFViewer", "COMSYL", "EigenStates","AutocorrelationFunction"]
+    # inputs = [{"name": "eigen-states",
+    #             "type": CompactAFReader,
+    #             "doc": "Coherent Modes Data",
+    #             "id": "eigen-states",
+    #             "handler": "_set_input_and_do_plot"},
+    #           ]
 
-    TYPE_PRESENTATION = Setting(0) # 0=abs, 1=real, 2=phase
-    # MODE_TO_PLOT = Setting(0)
-
+    outputs = [{"name":"GenericWavefront2D",
+                "type":GenericWavefront2D,
+                "doc":"GenericWavefront2D",
+                "id":"GenericWavefront2D"}]
 
     IMAGE_WIDTH = 760
     IMAGE_HEIGHT = 545
@@ -46,6 +51,13 @@ class OWAFViewer(widget.OWWidget):
     CONTROL_AREA_WIDTH = 405
     # TABS_AREA_HEIGHT = 560
 
+    beam_file_name = Setting("/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5")
+
+    TYPE_PRESENTATION = Setting(0) # 0=abs, 1=real, 2=phase
+
+    INDIVIDUAL_MODES = Setting(False)
+
+    MODE_INDEX = Setting(0)
 
     def unitLabels(self):
          return ['Type of presentation','Mode to plot:']
@@ -56,6 +68,8 @@ class OWAFViewer(widget.OWWidget):
 
         super().__init__()
 
+        self._input_available = False
+        self.af = None
 
         geom = QApplication.desktop().availableGeometry()
         self.setGeometry(QRect(round(geom.width()*0.05),
@@ -80,7 +94,7 @@ class OWAFViewer(widget.OWWidget):
 
         self.tab = []
         self.tabs = gui.tabWidget(plot_tab)
-        self.tab_titles = ["SPECTRUM","ALL MODES","MODE XX"]
+        self.tab_titles = [] #["SPECTRUM","ALL MODES","MODE XX"]
         self.initializeTabs()
 
 
@@ -105,66 +119,115 @@ class OWAFViewer(widget.OWWidget):
 
     def build_left_panel(self):
 
-        box = oasysgui.widgetBox(self.controlArea, "Plotting Parameters", orientation="vertical", width=self.CONTROL_AREA_WIDTH-5)
+        left_box_1 = oasysgui.widgetBox(self.controlArea, "Files Selection", addSpace=True, orientation="vertical",)
+                                         # width=570, height=60)
 
-        idx = -1
 
-        gui.button(box, self, "Replot", callback=self.do_plot)
+        figure_box = oasysgui.widgetBox(left_box_1, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
+        self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "beam_file_name", "COMSYL File:",
+                                                    labelWidth=90, valueType=str, orientation="horizontal")
+        self.le_beam_file_name.setFixedWidth(330)
+        gui.button(figure_box, self, "...", callback=self.selectFile)
+        gui.separator(left_box_1, height=20)
 
-        #widget index 0
-        idx += 1
-        box1 = gui.widgetBox(box)
-        gui.comboBox(box1, self, "TYPE_PRESENTATION",
-                     label=self.unitLabels()[idx], addSpace=False,
+
+        button = gui.button(self.controlArea, self, "Read COMSYL File", callback=self.read_file)
+        button.setFixedHeight(45)
+        gui.separator(left_box_1, height=20)
+
+
+        button = gui.button(self.controlArea, self, "PLOT COMSYL data", callback=self.do_plot)
+        button.setFixedHeight(45)
+
+        gui.comboBox(self.controlArea, self, "TYPE_PRESENTATION",
+                    label="Display magnitude ", addSpace=False,
                     items=['intensity','modulus','real part','imaginary part','angle [rad]'],
                     valueType=int, orientation="horizontal", callback=self.do_plot)
-        self.show_at(self.unitFlags()[idx], box1)
+        gui.separator(left_box_1, height=20)
 
 
+        gui.comboBox(self.controlArea, self, "INDIVIDUAL_MODES",
+                    label="Access individual modes ", addSpace=False,
+                    items=['No [Fast]','Yes [Slow, memory hungry]',],
+                    valueType=int, orientation="horizontal", callback=self.do_plot)
+        gui.separator(left_box_1, height=20)
 
-        #widget index 1
-        # idx += 1
-        # box1 = gui.widgetBox(box)
-        # oasysgui.lineEdit(box1, self, "MODE_TO_PLOT",
-        #              label=self.unitLabels()[idx], addSpace=False,
-        #             valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=250)
-        # self.show_at(self.unitFlags()[idx], box1)
-
+        oasysgui.lineEdit(self.controlArea, self, "MODE_INDEX",
+                    label="Load/Plot/Send mode ", addSpace=False,
+                    valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150,
+                    callback=self.do_plot)
 
         #widget index 2
-        idx += 1
-        box1 = gui.widgetBox(box)
-        self.info_energy = oasysgui.widgetLabel(box1, "Photon energy: ", labelWidth=250)
-        self.info_nmodes = oasysgui.widgetLabel(box1, "Number of modes: ", labelWidth=250)
+        # idx += 1
+        # box1 = gui.widgetBox(self.controlArea)
+        # self.info_energy = oasysgui.widgetLabel(box1, "Photon energy: ", labelWidth=250)
+        # self.info_nmodes = oasysgui.widgetLabel(box1, "Number of modes: ", labelWidth=250)
         # self.show_at(self.unitFlags()[idx], box1)
 
 
+    def set_selected_file(self,filename):
+        self.le_beam_file_name.setText(filename)
 
-    def _set_input_and_do_plot(self, eigenstates):
-        """This function is called when the widget receives an input."""
-        self._set_input(eigenstates)
-        self.do_plot()
+    def selectFile(self):
+        filename = oasysgui.selectFileFromDialog(self,
+                previous_file_path=self.beam_file_name, message="Open COMSYL File [*.npy or *.npz or *.h5]",
+                start_directory=".", file_extension_filter="*.*")
 
-    def _set_input(self, eigenstates):
-        if eigenstates is not None:
-            self._input_available = True  # The input is now available.
-            print("AFViewer: The viewer has received the data.")
-            print("AFViewer: %d modes received.\n"%(eigenstates.number_modes()))
-            self.eigenstates = eigenstates
-            self.info_energy.setText("Photon energy:   %5.3f eV"%eigenstates.photon_energy())
-            self.info_nmodes.setText("Number of modes: %d"%eigenstates.number_modes())
+        self.le_beam_file_name.setText(filename)
+
+
+    def read_file(self):
+        self.setStatusMessage("")
+        filename = self.le_beam_file_name.text()
+        print(">>>>>> Loading file",filename)
+
+        try:
+            if congruence.checkFileName(filename):
+
+                # just in case old file is open
+                try:
+                    self.af.close_h5_file()
+                except:
+                    pass
+
+                try:
+                    self.af = CompactAFReader.initialize_from_file(filename)
+                    self._input_available = True
+                except:
+                    raise FileExistsError("Error loading COMSYL modes from file: %s"%filename)
+
+                print(">>>> File %s:" % filename)
+                print(">>>> contains")
+                print(">>>> %i modes" % self.af.number_modes())
+                print(">>>> on the grid")
+                print(">>>> x: from %e to %e" % (self.af.x_coordinates().min(), self.af.x_coordinates().max()))
+                print(">>>> y: from %e to %e" % (self.af.y_coordinates().min(), self.af.y_coordinates().max()))
+
+        except:
+            raise Exception("Failed to read file %s"%filename)
+
+
+    def send_mode(self,mode_index=None):
+        if mode_index is None:
+            mode_index = self.MODE_INDEX
+        if mode_index >= self.af.number_of_modes():
+            raise Exception("Mode index out of range")
+
+        print(">>> Sending generic wavefront for mode index %d"%mode_index)
+
+        wf = GenericWavefront2D.initialize_wavefront_from_arrays(
+                self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(mode_index)  )
+        wf.set_photon_energy(self.af.photon_energy())
+        self.send("GenericWavefront2D", wf)
+
 
     def _square_modulus(self,array1):
         return (numpy.absolute(array1))**2
 
-
-
-
-
     def do_plot_image_in_tab(self,input_data,tab_index,title=""):
 
-        xx = self.eigenstates.x_coordinates()
-        yy = self.eigenstates.y_coordinates()
+        xx = self.af.x_coordinates()
+        yy = self.af.y_coordinates()
 
         xmin = numpy.min(xx)
         xmax = numpy.max(xx)
@@ -172,17 +235,10 @@ class OWAFViewer(widget.OWWidget):
         ymax = numpy.max(yy)
 
         origin = (1e6*xmin, 1e6*ymin)
-        scale = (1e6*abs((xmax-xmin)/self.eigenstates.x_coordinates().size),
-                 1e6*abs((ymax-ymin)/self.eigenstates.y_coordinates().size))
-
-        # origin = (0,0)
-        # scale = (1,1)
-        # print("ZZ",self.eigenstates.modes().shape)
-        # print("XX",xx.size,1e6*xx.min(),1e6*xx[0],1e6*xx.max(),1e6*xx[-1])
-        # print("YY",yy.size,1e6*yy.min(),1e6*yy[0],1e6*yy.max(),1e6*yy[-1])
+        scale = (1e6*abs((xmax-xmin)/self.af.x_coordinates().size),
+                 1e6*abs((ymax-ymin)/self.af.y_coordinates().size))
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
-
 
         self.plot_canvas[tab_index] = Plot2D()
         self.plot_canvas[tab_index].resetZoom()
@@ -197,7 +253,6 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[tab_index].getRoiAction().setVisible(False)
         self.plot_canvas[tab_index].getColormapAction().setVisible(False)
         self.plot_canvas[tab_index].setKeepDataAspectRatio(False)
-
 
         self.plot_canvas[tab_index].addImage( input_data,
                                                      legend="zio billy",
@@ -219,8 +274,17 @@ class OWAFViewer(widget.OWWidget):
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
     def do_plot(self):
-        self.tab_titles = ["SPECTRUM","INDIVIDUAL MODES","SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+
+
+        old_tab_index = self.tabs.currentIndex()
+
+        if self.INDIVIDUAL_MODES:
+            self.tab_titles = ["SPECTRUM","INDIVIDUAL MODES",              "SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+        else:
+            self.tab_titles = ["SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+
         self.initializeTabs()
+
 
         for i in range(len(self.tab_titles)):
             self.tab[i].layout().removeItem(self.tab[i].layout().itemAt(0))
@@ -247,31 +311,30 @@ class OWAFViewer(widget.OWWidget):
             title1 = "Angle of eigenvector [rad]"
 
         if self._input_available:
-            x_values = numpy.arange(self.eigenstates.number_modes())
+            x_values = numpy.arange(self.af.number_modes())
             x_label = "Mode index"
             y_label =  "Occupation"
 
 
-            xx = self.eigenstates.x_coordinates()
-            yy = self.eigenstates.y_coordinates()
+            xx = self.af.x_coordinates()
+            yy = self.af.y_coordinates()
 
             xmin = numpy.min(xx)
             xmax = numpy.max(xx)
             ymin = numpy.min(yy)
             ymax = numpy.max(yy)
 
-            integral1 = ((numpy.absolute(self.eigenstates.mode(0))**2).sum()*(xx[1]-xx[0])*(yy[1]-yy[0]))
-            integral1 = myprocess(self.eigenstates.mode(0)).sum()
-            integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
-            print("Integrated values for mode %d is %f"%(0,integral1))
+            # integral1 = myprocess(self.af.mode(0)).sum()
+            # integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
+            # print(">>>> Integrated values for mode %d is %f"%(0,integral1))
         else:
-            print("Nothing to plot")
-            return
+            raise Exception("Nothing to plot")
 
         #
         # plot spectrum
         #
-        self.plot_canvas[0] = PlotWindow(parent=None,
+        tab_index = 0
+        self.plot_canvas[tab_index] = PlotWindow(parent=None,
                                                          backend=None,
                                                          resetzoom=True,
                                                          autoScale=False,
@@ -291,66 +354,86 @@ class OWAFViewer(widget.OWWidget):
                                                          fit=False)
 
 
-        self.tab[0].layout().addWidget(self.plot_canvas[0])
+        self.tab[tab_index].layout().addWidget(self.plot_canvas[0])
 
-        self.plot_canvas[0].setDefaultPlotLines(True)
-        self.plot_canvas[0].setActiveCurveColor(color='darkblue')
-        self.plot_canvas[0].setXAxisLogarithmic(False)
-        self.plot_canvas[0].setYAxisLogarithmic(False)
-        self.plot_canvas[0].setGraphXLabel(x_label)
-        self.plot_canvas[0].setGraphYLabel(y_label)
-        self.plot_canvas[0].addCurve(x_values, self.eigenstates.occupation_array(), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[tab_index].setDefaultPlotLines(True)
+        self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
+        self.plot_canvas[tab_index].setXAxisLogarithmic(False)
+        self.plot_canvas[tab_index].setYAxisLogarithmic(False)
+        self.plot_canvas[tab_index].setGraphXLabel(x_label)
+        self.plot_canvas[tab_index].setGraphYLabel(y_label)
+        self.plot_canvas[tab_index].addCurve(x_values, self.af.occupation_array(), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
         #
         # plot all modes
         #
 
-        dim0_calib = (0, 1)
-        dim1_calib = (1e6*yy[0], 1e6*(yy[1]-yy[0]))
-        dim2_calib = (1e6*xx[0], 1e6*(xx[1]-xx[0]))
+        if self.INDIVIDUAL_MODES:
+            tab_index += 1
+            dim0_calib = (0, 1)
+            dim1_calib = (1e6*yy[0], 1e6*(yy[1]-yy[0]))
+            dim2_calib = (1e6*xx[0], 1e6*(xx[1]-xx[0]))
 
 
-        colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+            colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
-        self.plot_canvas[1] = StackViewMainWindow()
-        self.plot_canvas[1].setGraphTitle(title1)
-        self.plot_canvas[1].setLabels(["Mode number",
-                                       "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
-                                       "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax)])
-        self.plot_canvas[1].setColormap(colormap=colormap)
+            self.plot_canvas[tab_index] = StackViewMainWindow()
+            self.plot_canvas[tab_index].setGraphTitle(title1)
+            self.plot_canvas[tab_index].setLabels(["Mode number",
+                                           "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
+                                           "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax),
+                                           ])
+            self.plot_canvas[tab_index].setColormap(colormap=colormap)
 
-        self.plot_canvas[1].setStack( myprocess(numpy.swapaxes(self.eigenstates.modes(),2,1)),
-                                      calibrations=[dim0_calib, dim1_calib, dim2_calib] )
-        self.tab[1].layout().addWidget(self.plot_canvas[1])
+            self.plot_canvas[tab_index].setStack( myprocess(numpy.swapaxes(self.af.modes(),2,1)),
+                                          calibrations=[dim0_calib, dim1_calib, dim2_calib] )
+
+            # self.plot_canvas[1].setStack( self.af.modes(),
+            #                               calibrations=[dim0_calib, dim1_calib, dim2_calib] )
+
+            self.tab[tab_index].layout().addWidget(self.plot_canvas[1])
+        else:
+            tab_index += 1
+            image = myprocess( (self.af.mode(self.MODE_INDEX)).T)
+            self.do_plot_image_in_tab(image,tab_index,title="Mode %d"%self.MODE_INDEX)
 
         #
         # plot spectral density
         #
-        image = myprocess( (self.eigenstates.spectral_density()).T)
-        self.do_plot_image_in_tab(image,2,title="Spectral Density (Intensity)")
+        tab_index += 1
+        image = myprocess( (self.af.spectral_density()).T)
+        self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
 
         #
         # plot spectral density
         #
-        image = myprocess( (self.eigenstates.intensity_from_modes()).T)
-        self.do_plot_image_in_tab(image,3,title="Spectral Density (Intensity)")
+        if self.INDIVIDUAL_MODES:
+            tab_index += 1
+            image = myprocess( (self.af.intensity_from_modes()).T)
+            self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
 
 
         #
         # plot reference electron density
         #
-
-        image = numpy.abs( self.eigenstates.reference_electron_density().T )**2  #TODO: Correct? it is complex...
-        self.do_plot_image_in_tab(image,4,title="Reference electron density")
+        tab_index += 1
+        image = numpy.abs( self.af.reference_electron_density().T )**2  #TODO: Correct? it is complex...
+        self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
 
 
         #
         # plot reference undulator radiation
         #
-        image = self.eigenstates.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
-        self.do_plot_image_in_tab(image,5,title="Reference undulator radiation")
+        tab_index += 1
+        image = self.af.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
+        self.do_plot_image_in_tab(image,tab_index,title="Reference undulator radiation")
 
+        try:
+            self.tabs.setCurrentIndex(old_tab_index)
+        except:
+            pass
 
+        self.send_mode()
 
     def get_doc(self):
         print("PhotonViewer: help pressed.\n")
@@ -376,16 +459,15 @@ if __name__ == '__main__':
     # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
     # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
     # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.npz"
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.npz"
     # CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=100)
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.h5"
 
 
-
-    eigenstates = CompactAFReader.initialize_from_file(filename)
-
-    ow._set_input(eigenstates)
+    ow.set_selected_file(filename)
+    ow.read_file()
     ow.do_plot()
+
     ow.show()
 
     app.exec_()
