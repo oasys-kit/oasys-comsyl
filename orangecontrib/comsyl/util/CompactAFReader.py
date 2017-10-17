@@ -236,6 +236,7 @@ class CompactAFReader(object):
         return (self.number_modes(), self.x_coordinates().size, self.y_coordinates().size)
 
     def total_intensity_from_modes(self):
+        # WARNING: memory hungry as it will go trough the modes
         # intensity = np.zeros_like(self.mode(0))
         #
         # for i_e, eigenvalue in enumerate(self.eigenvalues()):
@@ -263,9 +264,15 @@ class CompactAFReader(object):
             for i_mode in range(self.number_modes()):
                 occupation = np.abs(self.occupation(i_mode))
                 percent += occupation
-                txt += "%i occupation: %e, accumulated percent: %12.10f\n" % (i_mode, occupation, 100*percent)
+                txt += "     %i occupation: %e, accumulated percent: %12.10f\n" % (i_mode, occupation, 100*percent)
 
 
+        txt += "\n\n\n\nCOMSYL log text: \n"
+        txt += self._data_dict["info"]
+
+        txt += "\n\n\n\nCOMSYL info: \n"
+
+        txt += "\n\n***********************************************************************************\n"
         txt += "%i modes\n" % self.number_modes()
         txt += "on the grid\n"
         txt += "x: from %e to %e\n" % (self.x_coordinates().min(), self.x_coordinates().max())
@@ -273,7 +280,8 @@ class CompactAFReader(object):
         txt += "calculated at %f eV\n" % self.photon_energy()
         txt += "total intensity from spectral density with (maybe improper) normalization: %e\n" % self.total_intensity_from_spectral_density()
         txt += "total intensity: %g\n"%self.total_intensity()
-        txt += "total intensity from modes: %g\n"%self.total_intensity_from_modes()
+        if False:
+            txt += "total intensity from modes: %g\n"%self.total_intensity_from_modes()
         txt += "Occupation of all modes: %g\n"%self.occupation_all_modes()
         txt += ">> Shape x,y, (%d,%d)\n"%(self.x_coordinates().size,self.y_coordinates().size)
         txt += ">> Shape Spectral density "+repr(self.spectral_density().shape)+"\n"
@@ -281,6 +289,8 @@ class CompactAFReader(object):
         txt += "Modes index to 90 percent occupancy: %d\n"%self.mode_up_to_percent(90.0)
         txt += "Modes index to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
         txt += "Modes index to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
+        txt += "\n***********************************************************************************\n\n"
+
 
         # print(">> Shape modes",self.modes().shape)
         # print(">> Shape modes  %d bytes, %6.2f Gigabytes: "%(self.modes().nbytes,self.modes().nbytes/(1024**3)))

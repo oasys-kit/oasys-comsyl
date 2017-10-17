@@ -2,6 +2,8 @@ from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect
 
+from PyQt5 import  QtGui, QtWidgets
+
 from silx.gui.plot import PlotWindow, Plot2D
 from silx.gui.plot.StackView import StackViewMainWindow
 
@@ -91,11 +93,24 @@ class OWAFViewer(widget.OWWidget):
 
         self.main_tabs = gui.tabWidget(self.mainArea)
         plot_tab = gui.createTabPage(self.main_tabs, "Results")
+        info_tab = gui.createTabPage(self.main_tabs, "Info")
 
         self.tab = []
         self.tabs = gui.tabWidget(plot_tab)
+        self.info = gui.tabWidget(info_tab)
         self.tab_titles = [] #["SPECTRUM","ALL MODES","MODE XX"]
         self.initializeTabs()
+
+        # info tab
+        self.comsyl_output = QtWidgets.QTextEdit()
+        self.comsyl_output.setReadOnly(True)
+
+        out_box = gui.widgetBox(self.info, "COMSYL file info", addSpace=True, orientation="horizontal")
+        out_box.layout().addWidget(self.comsyl_output)
+
+        self.comsyl_output.setFixedHeight(self.IMAGE_HEIGHT)
+        self.comsyl_output.setFixedWidth(self.IMAGE_WIDTH)
+
 
 
     def initializeTabs(self):
@@ -116,6 +131,13 @@ class OWAFViewer(widget.OWWidget):
         for tab in self.tab:
             tab.setFixedHeight(self.IMAGE_HEIGHT)
             tab.setFixedWidth(self.IMAGE_WIDTH)
+
+    def writeStdOut(self, text):
+        cursor = self.comsyl_output.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.End)
+        cursor.insertText(text)
+        self.comsyl_output.setTextCursor(cursor)
+        self.comsyl_output.ensureCursorVisible()
 
     def build_left_panel(self):
 
@@ -152,10 +174,15 @@ class OWAFViewer(widget.OWWidget):
                     valueType=int, orientation="horizontal", callback=self.do_plot)
         gui.separator(left_box_1, height=20)
 
-        oasysgui.lineEdit(self.controlArea, self, "MODE_INDEX",
+
+
+        mode_index_box = oasysgui.widgetBox(self.controlArea, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
+        oasysgui.lineEdit(mode_index_box, self, "MODE_INDEX",
                     label="Load/Plot/Send mode ", addSpace=False,
                     valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150,
                     callback=self.do_plot)
+        gui.button(mode_index_box, self, "+1", callback=self.increaseModeIndex)
+        gui.separator(left_box_1, height=20)
 
         #widget index 2
         # idx += 1
@@ -163,6 +190,13 @@ class OWAFViewer(widget.OWWidget):
         # self.info_energy = oasysgui.widgetLabel(box1, "Photon energy: ", labelWidth=250)
         # self.info_nmodes = oasysgui.widgetLabel(box1, "Number of modes: ", labelWidth=250)
         # self.show_at(self.unitFlags()[idx], box1)
+
+
+    def increaseModeIndex(self):
+        if self.MODE_INDEX+1 >= self.af.number_of_modes():
+            raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
+        self.MODE_INDEX += 1
+        self.do_plot()
 
 
     def set_selected_file(self,filename):
@@ -193,6 +227,7 @@ class OWAFViewer(widget.OWWidget):
                 try:
                     self.af = CompactAFReader.initialize_from_file(filename)
                     self._input_available = True
+                    self.writeStdOut(self.af.info())
                 except:
                     raise FileExistsError("Error loading COMSYL modes from file: %s"%filename)
 
