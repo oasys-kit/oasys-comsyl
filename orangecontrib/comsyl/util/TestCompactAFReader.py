@@ -68,30 +68,41 @@ def toc(text=""):
 
 if __name__ == "__main__":
 
+    from srxraylib.plot.gol import plot_image
+
+    from comsyl.autocorrelation.DegreeOfCoherence import DegreeOfCoherence
+
     filename_h5 = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
     filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
 
-    filename_h5 = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.npz"
+    # filename_h5 = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s1.0.h5"
+    # filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s1.0.npz"
 
     af1  = CompactAFReader.initialize_from_file(filename_h5)
     tic()
-    for i in range(600):
+    for i in range(af1.number_modes()):
         print(i,af1.mode(i).sum())
     toc()
     print(af1.info())
-
-
+    #
+    #
     af2  = CompactAFReader.initialize_from_file(filename_np)
     tic()
-    for i in range(600):
+    for i in range(af2.number_modes()):
         print(i,af2.mode(i).sum())
     toc()
 
 
-    test_equal(af1,af2)
-    print_scattered_info(af1,af2)
+
+
+    # Cross spectral density
+
+    Wx1x2,Wy1y2 = af2.CSD_in_one_dimension()
+
+    print(Wx1x2.shape,Wx1x2[10,10])
+    plot_image(np.abs(Wx1x2),1e6*af2.x_coordinates(),1e6*af2.x_coordinates(),show=False,title="Wx1x2")
+    plot_image(np.abs(Wy1y2),1e6*af2.y_coordinates(),1e6*af2.y_coordinates(),show=True,title="Wy1y2")
 
 
 

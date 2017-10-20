@@ -253,6 +253,10 @@ class OWAFViewer(widget.OWWidget):
         wf = GenericWavefront2D.initialize_wavefront_from_arrays(
                 self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(mode_index)  )
         wf.set_photon_energy(self.af.photon_energy())
+        ampl = wf.get_complex_amplitude()
+        eigen = self.af.eigenvalues()
+        print(">>>>>>>>>>>>>>>>>>",eigen[self.MODE_INDEX])
+        wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
         self.send("GenericWavefront2D", wf)
 
 

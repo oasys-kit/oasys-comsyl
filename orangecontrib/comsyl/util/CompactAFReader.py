@@ -330,6 +330,28 @@ class CompactAFReader(object):
 
         return CompactAFReader(af)
 
+    def CSD_in_one_dimension(self):
+        for i in range(self.number_of_modes()):
+            imodeX = self.mode(i)[:,int(0.5*self.shape[2])]
+            imodeY = self.mode(i)[int(0.5*self.shape[1]),:]
+
+            if i == 0:
+                Wx1x2 =  np.outer( np.conj(imodeX) , imodeX ) * self.eigenvalue(i)
+                Wy1y2 =  np.outer( np.conj(imodeY) , imodeY ) * self.eigenvalue(i)
+            else:
+                Wx1x2 += np.outer( np.conj(imodeX) , imodeX ) * self.eigenvalue(i)
+                Wy1y2 += np.outer( np.conj(imodeY) , imodeY ) * self.eigenvalue(i)
+
+        return Wx1x2,Wy1y2
+
+    def Wx1x2(self):
+        Wx1x2,Wy1y2 = self.CSD_in_one_dimension()
+        return Wx1x2
+
+    def Wy1y2(self):
+        Wy1y2,Wy1y2 = self.CSD_in_one_dimension()
+        return Wy1y2
+
 
 
 
