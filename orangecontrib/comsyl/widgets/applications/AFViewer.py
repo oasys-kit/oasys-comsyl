@@ -34,12 +34,6 @@ class OWAFViewer(widget.OWWidget):
     priority = 40
     category = ""
     keywords = ["AFViewer", "COMSYL", "EigenStates","AutocorrelationFunction"]
-    # inputs = [{"name": "eigen-states",
-    #             "type": CompactAFReader,
-    #             "doc": "Coherent Modes Data",
-    #             "id": "eigen-states",
-    #             "handler": "_set_input_and_do_plot"},
-    #           ]
 
     outputs = [{"name":"GenericWavefront2D",
                 "type":GenericWavefront2D,
@@ -55,7 +49,7 @@ class OWAFViewer(widget.OWWidget):
 
     beam_file_name = Setting("/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5")
 
-    TYPE_PRESENTATION = Setting(0) # 0=abs, 1=real, 2=phase
+    TYPE_PRESENTATION = Setting(0) # 0=intensity, 1=real, 2=phase
 
     INDIVIDUAL_MODES = Setting(False)
 
@@ -184,12 +178,6 @@ class OWAFViewer(widget.OWWidget):
         gui.button(mode_index_box, self, "+1", callback=self.increaseModeIndex)
         gui.separator(left_box_1, height=20)
 
-        #widget index 2
-        # idx += 1
-        # box1 = gui.widgetBox(self.controlArea)
-        # self.info_energy = oasysgui.widgetLabel(box1, "Photon energy: ", labelWidth=250)
-        # self.info_nmodes = oasysgui.widgetLabel(box1, "Number of modes: ", labelWidth=250)
-        # self.show_at(self.unitFlags()[idx], box1)
 
 
     def increaseModeIndex(self):
@@ -213,8 +201,6 @@ class OWAFViewer(widget.OWWidget):
     def read_file(self):
         self.setStatusMessage("")
         filename = self.le_beam_file_name.text()
-        print(">>>>>> Loading file",filename)
-
         try:
             if congruence.checkFileName(filename):
 
@@ -231,13 +217,6 @@ class OWAFViewer(widget.OWWidget):
                 except:
                     raise FileExistsError("Error loading COMSYL modes from file: %s"%filename)
 
-                print(">>>> File %s:" % filename)
-                print(">>>> contains")
-                print(">>>> %i modes" % self.af.number_modes())
-                print(">>>> on the grid")
-                print(">>>> x: from %e to %e" % (self.af.x_coordinates().min(), self.af.x_coordinates().max()))
-                print(">>>> y: from %e to %e" % (self.af.y_coordinates().min(), self.af.y_coordinates().max()))
-
         except:
             raise Exception("Failed to read file %s"%filename)
 
@@ -248,14 +227,12 @@ class OWAFViewer(widget.OWWidget):
         if mode_index >= self.af.number_of_modes():
             raise Exception("Mode index out of range")
 
-        print(">>> Sending generic wavefront for mode index %d"%mode_index)
 
         wf = GenericWavefront2D.initialize_wavefront_from_arrays(
                 self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(mode_index)  )
         wf.set_photon_energy(self.af.photon_energy())
         ampl = wf.get_complex_amplitude()
         eigen = self.af.eigenvalues()
-        print(">>>>>>>>>>>>>>>>>>",eigen[self.MODE_INDEX])
         wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
         self.send("GenericWavefront2D", wf)
 
@@ -474,6 +451,7 @@ class OWAFViewer(widget.OWWidget):
 
         self.send_mode()
 
+
     def get_doc(self):
         print("PhotonViewer: help pressed.\n")
         home_doc = resources.package_dirname("orangecontrib.oasyscrystalpy") + "/doc_files/"
@@ -489,25 +467,14 @@ class OWAFViewer(widget.OWWidget):
 
 if __name__ == '__main__':
 
-
-
     app = QApplication([])
     ow = OWAFViewer()
 
-
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
-    # filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/alba_cm_u21_2m_1h_s2.5.h5"
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.npz"
-    # CompactAFReader.convert_to_h5(filename,maximum_number_of_modes=100)
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.h5"
-
-
     ow.set_selected_file(filename)
     ow.read_file()
     ow.do_plot()
 
     ow.show()
-
     app.exec_()
     ow.saveSettings()

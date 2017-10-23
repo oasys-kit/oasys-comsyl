@@ -9,6 +9,8 @@ from comsyl.waveoptics.Wavefront import NumpyWavefront
 from comsyl.autocorrelation.AutocorrelationFunctionIO import undulator_from_numpy_array
 from comsyl.math.TwoformVectors import TwoformVectorsEigenvectors
 
+from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
+
 
 class CompactAFReader(object):
     def __init__(self, af=None, data_dict=None, filename=None, h5f=None):
@@ -22,9 +24,7 @@ class CompactAFReader(object):
 
     @classmethod
     def initialize_from_h5_file(cls,filename):
-        # data_dict = AutocorrelationFunctionIO.loadh5(filename)
         data_dict, h5f = cls.loadh5_to_dictionaire(filename)
-        # af = AutocorrelationFunction.fromDictionary(data_dict)
         af = cls.fromDictionary(data_dict)
         return CompactAFReader(af,data_dict,filename,h5f)
 
@@ -268,7 +268,7 @@ class CompactAFReader(object):
 
 
         txt += "\n\n\n\nCOMSYL log text: \n"
-        txt += self._data_dict["info"]
+        txt += str(self._data_dict["info"])
 
         txt += "\n\n\n\nCOMSYL info: \n"
 
@@ -290,10 +290,6 @@ class CompactAFReader(object):
         txt += "Modes index to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
         txt += "Modes index to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
         txt += "\n***********************************************************************************\n\n"
-
-
-        # print(">> Shape modes",self.modes().shape)
-        # print(">> Shape modes  %d bytes, %6.2f Gigabytes: "%(self.modes().nbytes,self.modes().nbytes/(1024**3)))
 
         return txt
 
@@ -330,8 +326,12 @@ class CompactAFReader(object):
 
         return CompactAFReader(af)
 
-    def CSD_in_one_dimension(self):
-        for i in range(self.number_of_modes()):
+    def CSD_in_one_dimension(self,mode_index_max=None):
+
+        if mode_index_max is None:
+            mode_index_max = self.number_of_modes() - 1
+
+        for i in range(mode_index_max+1):
             imodeX = self.mode(i)[:,int(0.5*self.shape[2])]
             imodeY = self.mode(i)[int(0.5*self.shape[1]),:]
 
@@ -344,6 +344,52 @@ class CompactAFReader(object):
 
         return Wx1x2,Wy1y2
 
+    # def __WW(self,wf):
+    #
+    #     WF = wf.get_complex_amplitude()
+    #     imodeX = WF[:,int(0.5*self.shape[2])]
+    #     imodeY = WF[int(0.5*self.shape[1]),:]
+    #
+    #     Wx1x2 =  np.outer( np.conj(imodeX) , imodeX ) #* self.eigenvalue(i)
+    #     Wy1y2 =  np.outer( np.conj(imodeY) , imodeY ) #* self.eigenvalue(i)
+    #
+    #
+    #     return Wx1x2,Wy1y2
+    #
+    #
+    # def CSD_in_one_dimensionBis(self,mode_index_max=None):
+    #
+    #     if mode_index_max is None:
+    #         mode_index_max = self.number_of_modes() - 1
+    #
+    #     # i = 3
+    #     # imodeX = self.mode(i)[:,int(0.5*self.shape[2])]
+    #     # imodeY = self.mode(i)[int(0.5*self.shape[1]),:]
+    #     # Wx1x2 =  np.outer( np.conj(imodeX) , imodeX ) * self.eigenvalue(i)
+    #     # Wy1y2 =  np.outer( np.conj(imodeY) , imodeY ) * self.eigenvalue(i)
+    #
+    #     for i in range(mode_index_max+1):
+    #
+    #         wf =  GenericWavefront2D.initialize_wavefront_from_arrays(
+    #             self.x_coordinates(),self.y_coordinates(), self.mode(i)  )
+    #         wf.set_photon_energy(self.photon_energy())
+    #
+    #         # WF = wf.get_complex_amplitude()
+    #         # imodeX = WF[:,int(0.5*self.shape[2])]
+    #         # imodeY = WF[int(0.5*self.shape[1]),:]
+    #
+    #         tmp1, tmp2 = self.__WW(wf)
+    #
+    #         if i == 0:
+    #             Wx1x2 = tmp1 * self.eigenvalue(i)
+    #             Wy1y2 = tmp2 * self.eigenvalue(i)
+    #         else:
+    #             Wx1x2 += tmp1 * self.eigenvalue(i)
+    #             Wy1y2 += tmp2 * self.eigenvalue(i)
+    #
+    #     return Wx1x2,Wy1y2
+
+
     def Wx1x2(self):
         Wx1x2,Wy1y2 = self.CSD_in_one_dimension()
         return Wx1x2
@@ -351,11 +397,3 @@ class CompactAFReader(object):
     def Wy1y2(self):
         Wy1y2,Wy1y2 = self.CSD_in_one_dimension()
         return Wy1y2
-
-
-
-
-
-
-
-
