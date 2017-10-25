@@ -126,7 +126,7 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
     def refresh(self):
 
-        self.progressBarInit()
+
         self.do_plot_results(10)  # TODO: check progressBar...
 
 
@@ -137,6 +137,7 @@ class ComsylWavefrontViewer2D(WofryWidget):
         if self.accumulated_data is None:
             return
         else:
+            self.progressBarInit()
             self.progressBarSet(progressBarValue)
 
             # titles = ["Wavefront 2D Intensity","W(x1,0,x2,0)","W(0,y1,0,y2)"] #, "Wavefront 2D Phase"]
@@ -175,18 +176,22 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
     def reset_accumumation(self):
 
-        try:
-            if self.accumulated_data is not None:
-                self.progressBarInit()
-                self.accumulated_data["intensity"] *= 0.0
-                self.accumulated_data["W_x1_0_x2_0"] *= 0.0
-                self.accumulated_data["W_0_y1_0_y2"] *= 0.0
-                self.progressBarInit()
-                self.set_input(None) # GenericWavefront2D.initialize_wavefront_from_range(-1e-3,1e-3,-1e-3,1e-3,(200,200)))
-                self.do_plot_results(10)
-                self.progressBarFinished()
-        except:
-            pass
+        self.initializeTabs()
+        self.accumulated_data = None
+        self.wavefront2D = None
+
+        # try:
+        #     if self.accumulated_data is not None:
+        #         self.progressBarInit()
+        #         self.accumulated_data["intensity"] *= 0.0
+        #         self.accumulated_data["W_x1_0_x2_0"] *= 0.0
+        #         self.accumulated_data["W_0_y1_0_y2"] *= 0.0
+        #         self.progressBarInit()
+        #         self.set_input(None) # GenericWavefront2D.initialize_wavefront_from_range(-1e-3,1e-3,-1e-3,1e-3,(200,200)))
+        #         self.do_plot_results(10)
+        #         self.progressBarFinished()
+        # except:
+        #     pass
 
 if __name__ == '__main__':
 
