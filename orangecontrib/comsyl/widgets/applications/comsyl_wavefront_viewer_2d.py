@@ -25,6 +25,10 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
     wavefront2D = None
     accumulated_data = None
+    keep_result = Setting(0)
+    plot_intensity = Setting(1)
+    plot_phase = Setting(0)
+    plot_csd = Setting(0)
 
     def __init__(self):
         super().__init__(is_automatic=False, show_view_options=False)
@@ -33,8 +37,8 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
         gui.separator(self.controlArea)
 
+        #
         button_box = oasysgui.widgetBox(self.controlArea, "", addSpace=False, orientation="horizontal")
-
         button = gui.button(button_box, self, "Refresh", callback=self.refresh)
         font = QFont(button.font())
         font.setBold(True)
@@ -44,15 +48,6 @@ class ComsylWavefrontViewer2D(WofryWidget):
         button.setPalette(palette) # assign new palette
         button.setFixedHeight(45)
 
-        button_box = oasysgui.widgetBox(self.controlArea, "", addSpace=False, orientation="horizontal")
-        button = gui.button(button_box, self, "Reset Accumulated Wavefronts", callback=self.reset_accumumation)
-        font = QFont(button.font())
-        font.setBold(True)
-        button.setFont(font)
-        palette = QPalette(button.palette()) # make a copy of the palette
-        palette.setColor(QPalette.ButtonText, QColor('Dark Blue'))
-        button.setPalette(palette) # assign new palette
-        button.setFixedHeight(45)
 
 
         gui.separator(self.controlArea)
@@ -66,6 +61,15 @@ class ComsylWavefrontViewer2D(WofryWidget):
         self.tab_sou = oasysgui.createTabPage(tabs_setting, "Wavefront Viewer Settings")
 
 
+        incremental_box = oasysgui.widgetBox(self.tab_sou, "Incremental Result", addSpace=True, orientation="horizontal", height=80)
+        gui.checkBox(incremental_box, self, "keep_result", "Keep Result")
+        gui.button(incremental_box, self, "Clear", callback=self.reset_accumumation)
+
+        incremental_box = oasysgui.widgetBox(self.tab_sou, "Show plots", addSpace=True, orientation="horizontal", height=80)
+        gui.checkBox(incremental_box, self, "plot_intensity", "Plot Intensity")
+        gui.checkBox(incremental_box, self, "plot_phase", "Plot Phase")
+        gui.checkBox(incremental_box, self, "plot_csd", "Plot Cross spectral density")
+
     def initializeTabs(self):
         size = len(self.tab)
         indexes = range(0, size)
@@ -73,7 +77,18 @@ class ComsylWavefrontViewer2D(WofryWidget):
         for index in indexes:
             self.tabs.removeTab(size-1-index)
 
-        titles = titles = ["Wavefront 2D Intensity","W(x1,0,x2,0)","W(0,y1,0,y2)"] #, "Wavefront 2D Phase"]
+
+
+        titles = []
+        if self.plot_intensity:
+            titles.append("Intensity")
+        if self.plot_phase:
+            titles.append("Phase")
+        if self.plot_csd:
+            titles.append("W(x1,0,x2,0)")
+            titles.append("W(0,y1,0,y2)")
+
+
         self.tab = []
         self.plot_canvas = []
 
@@ -102,14 +117,18 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
         if not wf is None:
 
+            if not self.keep_result:
+                self.reset_accumumation()
+
             self.wavefront2D = wf
 
             Wx1x2,Wy1y2  = self.crossSpectralDensityHV()
 
             if self.accumulated_data is None:
                 self.accumulated_data = {}
+                self.accumulated_data["counter"] = 1
                 self.accumulated_data["intensity"] = self.wavefront2D.get_intensity()
-
+                self.accumulated_data["phase"] = self.wavefront2D.get_phase()
 
                 self.accumulated_data["W_x1_0_x2_0"] = Wx1x2
                 self.accumulated_data["W_0_y1_0_y2"] = Wy1y2
@@ -117,7 +136,9 @@ class ComsylWavefrontViewer2D(WofryWidget):
                 self.accumulated_data["y"] = self.wavefront2D.get_coordinate_y()
 
             else:
+                self.accumulated_data["counter"] += 1
                 self.accumulated_data["intensity"] += self.wavefront2D.get_intensity()
+                self.accumulated_data["phase"] += self.wavefront2D.get_phase()
                 self.accumulated_data["W_x1_0_x2_0"] += Wx1x2
                 self.accumulated_data["W_0_y1_0_y2"] += Wy1y2
 
@@ -126,7 +147,7 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
     def refresh(self):
 
-
+        self.initializeTabs()
         self.do_plot_results(10)  # TODO: check progressBar...
 
 
@@ -142,35 +163,54 @@ class ComsylWavefrontViewer2D(WofryWidget):
 
             # titles = ["Wavefront 2D Intensity","W(x1,0,x2,0)","W(0,y1,0,y2)"] #, "Wavefront 2D Phase"]
 
-            self.plot_data2D(data2D=self.accumulated_data["intensity"],
-                             dataX=1e6*self.accumulated_data["x"],
-                             dataY=1e6*self.accumulated_data["y"],
-                             progressBarValue=progressBarValue+10,
-                             tabs_canvas_index=0,
-                             plot_canvas_index=0,
-                             title="Wavefront 2D Intensity",
-                             xtitle="Horizontal Coordinate [$\mu$m]",
-                             ytitle="Vertical Coordinate [$\mu$m]")
+            tabs_canvas_index = -1
+            if self.plot_intensity:
+                tabs_canvas_index += 1
+                self.plot_data2D(data2D=self.accumulated_data["intensity"],
+                                 dataX=1e6*self.accumulated_data["x"],
+                                 dataY=1e6*self.accumulated_data["y"],
+                                 progressBarValue=progressBarValue+10,
+                                 tabs_canvas_index=tabs_canvas_index,
+                                 plot_canvas_index=0,
+                                 title="Wavefront 2D Intensity",
+                                 xtitle="Horizontal Coordinate [$\mu$m]",
+                                 ytitle="Vertical Coordinate [$\mu$m]")
 
-            self.plot_data2D(data2D=numpy.abs(self.accumulated_data["W_x1_0_x2_0"]),
-                             dataX=1e6*self.accumulated_data["x"],
-                             dataY=1e6*self.accumulated_data["y"],
-                             progressBarValue=progressBarValue+10,
-                             tabs_canvas_index=1,
-                             plot_canvas_index=0,
-                             title="Cross spectral density (horizontal, at y=0)",
-                             xtitle="Horizontal Coordinate x1 [$\mu$m]",
-                             ytitle="Horizontal Coordinate x2 [$\mu$m]")
-
-            self.plot_data2D(data2D=numpy.abs(self.accumulated_data["W_0_y1_0_y2"]),
-                             dataX=1e6*self.accumulated_data["x"],
-                             dataY=1e6*self.accumulated_data["y"],
-                             progressBarValue=progressBarValue+10,
-                             tabs_canvas_index=2,
-                             plot_canvas_index=0,
-                             title="Cross spectral density (vertical, at x=0)",
-                             xtitle="Vertical Coordinate y1 [$\mu$m]",
-                             ytitle="Vertical Coordinate y2 [$\mu$m]")
+            if self.plot_phase:
+                tabs_canvas_index += 1
+                phase = 180.0 / numpy.pi * self.accumulated_data["phase"] / self.accumulated_data["counter"]
+                intensity_normalized = self.accumulated_data["intensity"] / self.accumulated_data["intensity"].max()
+                phase[numpy.where(intensity_normalized<0.1)] = 0
+                self.plot_data2D(data2D=phase,
+                                 dataX=1e6*self.accumulated_data["x"],
+                                 dataY=1e6*self.accumulated_data["y"],
+                                 progressBarValue=progressBarValue+10,
+                                 tabs_canvas_index=tabs_canvas_index,
+                                 plot_canvas_index=0,
+                                 title="Wavefront 2D Averaged Phase [degrees]",
+                                 xtitle="Horizontal Coordinate [$\mu$m]",
+                                 ytitle="Vertical Coordinate [$\mu$m]")
+            if self.plot_csd:
+                tabs_canvas_index += 1
+                self.plot_data2D(data2D=numpy.abs(self.accumulated_data["W_x1_0_x2_0"]),
+                                 dataX=1e6*self.accumulated_data["x"],
+                                 dataY=1e6*self.accumulated_data["y"],
+                                 progressBarValue=progressBarValue+10,
+                                 tabs_canvas_index=tabs_canvas_index,
+                                 plot_canvas_index=0,
+                                 title="Cross spectral density (horizontal, at y=0)",
+                                 xtitle="Horizontal Coordinate x1 [$\mu$m]",
+                                 ytitle="Horizontal Coordinate x2 [$\mu$m]")
+                tabs_canvas_index += 1
+                self.plot_data2D(data2D=numpy.abs(self.accumulated_data["W_0_y1_0_y2"]),
+                                 dataX=1e6*self.accumulated_data["x"],
+                                 dataY=1e6*self.accumulated_data["y"],
+                                 progressBarValue=progressBarValue+10,
+                                 tabs_canvas_index=tabs_canvas_index,
+                                 plot_canvas_index=0,
+                                 title="Cross spectral density (vertical, at x=0)",
+                                 xtitle="Vertical Coordinate y1 [$\mu$m]",
+                                 ytitle="Vertical Coordinate y2 [$\mu$m]")
 
             self.progressBarFinished()
 
@@ -180,18 +220,6 @@ class ComsylWavefrontViewer2D(WofryWidget):
         self.accumulated_data = None
         self.wavefront2D = None
 
-        # try:
-        #     if self.accumulated_data is not None:
-        #         self.progressBarInit()
-        #         self.accumulated_data["intensity"] *= 0.0
-        #         self.accumulated_data["W_x1_0_x2_0"] *= 0.0
-        #         self.accumulated_data["W_0_y1_0_y2"] *= 0.0
-        #         self.progressBarInit()
-        #         self.set_input(None) # GenericWavefront2D.initialize_wavefront_from_range(-1e-3,1e-3,-1e-3,1e-3,(200,200)))
-        #         self.do_plot_results(10)
-        #         self.progressBarFinished()
-        # except:
-        #     pass
 
 if __name__ == '__main__':
 

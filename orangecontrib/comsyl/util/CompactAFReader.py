@@ -7,7 +7,7 @@ from comsyl.autocorrelation.AutocorrelationInfo import AutocorrelationInfo
 from comsyl.math.Twoform import Twoform
 from comsyl.waveoptics.Wavefront import NumpyWavefront
 from comsyl.autocorrelation.AutocorrelationFunctionIO import undulator_from_numpy_array
-from comsyl.math.TwoformVectors import TwoformVectorsEigenvectors
+from comsyl.math.TwoformVectors import TwoformVectorsEigenvectors, TwoformVectorsWavefronts
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
@@ -254,13 +254,13 @@ class CompactAFReader(object):
     def keys(self):
         return self._data_dict.keys()
 
-    def info(self,list_modes=True):
-        txt = "contains\n"
+    def info(self,list_modes=False):
+        txt = "\n"
 
 
-        txt += "Occupation and max abs value of the mode\n"
-        percent = 0.0
         if list_modes:
+            percent = 0.0
+            txt += "Occupation and max abs value of the mode\n"
             for i_mode in range(self.number_modes()):
                 occupation = np.abs(self.occupation(i_mode))
                 percent += occupation
@@ -280,15 +280,15 @@ class CompactAFReader(object):
         txt += "calculated at %f eV\n" % self.photon_energy()
         txt += "total intensity from spectral density with (maybe improper) normalization: %e\n" % self.total_intensity_from_spectral_density()
         txt += "total intensity: %g\n"%self.total_intensity()
-        if False:
-            txt += "total intensity from modes: %g\n"%self.total_intensity_from_modes()
         txt += "Occupation of all modes: %g\n"%self.occupation_all_modes()
         txt += ">> Shape x,y, (%d,%d)\n"%(self.x_coordinates().size,self.y_coordinates().size)
         txt += ">> Shape Spectral density "+repr(self.spectral_density().shape)+"\n"
         txt += ">> Shape Photon Energy "+repr(self.photon_energy().shape)+"\n"
-        txt += "Modes index to 90 percent occupancy: %d\n"%self.mode_up_to_percent(90.0)
-        txt += "Modes index to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
-        txt += "Modes index to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
+        # SLOW:
+        # txt += "total intensity from modes: %g\n"%self.total_intensity_from_modes()
+        # txt += "Modes index to 90 percent occupancy: %d\n"%self.mode_up_to_percent(90.0)
+        # txt += "Modes index to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
+        # txt += "Modes index to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
         txt += "\n***********************************************************************************\n\n"
 
         return txt

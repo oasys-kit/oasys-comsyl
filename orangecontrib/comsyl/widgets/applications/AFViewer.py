@@ -135,14 +135,14 @@ class OWAFViewer(widget.OWWidget):
 
     def build_left_panel(self):
 
-        left_box_1 = oasysgui.widgetBox(self.controlArea, "Files Selection", addSpace=True, orientation="vertical",)
+        left_box_1 = oasysgui.widgetBox(self.controlArea, "Files Selection", addSpace=True, orientation="vertical")
                                          # width=570, height=60)
 
 
-        figure_box = oasysgui.widgetBox(left_box_1, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
+        figure_box = oasysgui.widgetBox(left_box_1, "", addSpace=True, orientation="horizontal") #width=550, height=50)
         self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "beam_file_name", "COMSYL File:",
                                                     labelWidth=90, valueType=str, orientation="horizontal")
-        self.le_beam_file_name.setFixedWidth(330)
+        # self.le_beam_file_name.setFixedWidth(330)
         gui.button(figure_box, self, "...", callback=self.selectFile)
         gui.separator(left_box_1, height=20)
 
@@ -213,7 +213,9 @@ class OWAFViewer(widget.OWWidget):
                 try:
                     self.af = CompactAFReader.initialize_from_file(filename)
                     self._input_available = True
-                    self.writeStdOut(self.af.info())
+                    self.writeStdOut(self.af.info(list_modes=False))
+                    self.main_tabs.setCurrentIndex(1)
+                    self.initializeTabs()
                 except:
                     raise FileExistsError("Error loading COMSYL modes from file: %s"%filename)
 
@@ -295,9 +297,9 @@ class OWAFViewer(widget.OWWidget):
         old_tab_index = self.tabs.currentIndex()
 
         if self.INDIVIDUAL_MODES:
-            self.tab_titles = ["SPECTRUM","INDIVIDUAL MODES",              "SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","INDIVIDUAL MODES",              "SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
         else:
-            self.tab_titles = ["SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
 
         self.initializeTabs()
 
@@ -370,7 +372,7 @@ class OWAFViewer(widget.OWWidget):
                                                          fit=False)
 
 
-        self.tab[tab_index].layout().addWidget(self.plot_canvas[0])
+        self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
         self.plot_canvas[tab_index].setDefaultPlotLines(True)
         self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
@@ -378,7 +380,42 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[tab_index].setYAxisLogarithmic(False)
         self.plot_canvas[tab_index].setGraphXLabel(x_label)
         self.plot_canvas[tab_index].setGraphYLabel(y_label)
-        self.plot_canvas[tab_index].addCurve(x_values, self.af.occupation_array(), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[tab_index].addCurve(x_values, numpy.abs(self.af.occupation_array()), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+
+        #
+        # plot cumulated spectrum
+        #
+        tab_index += 1
+        self.plot_canvas[tab_index] = PlotWindow(parent=None,
+                                                         backend=None,
+                                                         resetzoom=True,
+                                                         autoScale=False,
+                                                         logScale=True,
+                                                         grid=True,
+                                                         curveStyle=True,
+                                                         colormap=False,
+                                                         aspectRatio=False,
+                                                         yInverted=False,
+                                                         copy=True,
+                                                         save=True,
+                                                         print_=True,
+                                                         control=False,
+                                                         position=True,
+                                                         roi=False,
+                                                         mask=False,
+                                                         fit=False)
+
+
+        self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
+
+        self.plot_canvas[tab_index].setDefaultPlotLines(True)
+        self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
+        self.plot_canvas[tab_index].setXAxisLogarithmic(False)
+        self.plot_canvas[tab_index].setYAxisLogarithmic(False)
+        self.plot_canvas[tab_index].setGraphXLabel(x_label)
+        self.plot_canvas[tab_index].setGraphYLabel("Cumulated occupation")
+        self.plot_canvas[tab_index].addCurve(x_values, numpy.cumsum(numpy.abs(self.af.occupation_array())), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[tab_index].setGraphYLimits(0.0,1.0)
 
         #
         # plot all modes
@@ -470,7 +507,12 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWAFViewer()
 
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/id16s_ebs_u18_1400mm_1h_s1.0.h5"
+    filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
+    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.npz"
+
+    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.npz"
+    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
+    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.5.npz"
     ow.set_selected_file(filename)
     ow.read_file()
     ow.do_plot()
