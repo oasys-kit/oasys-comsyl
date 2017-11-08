@@ -55,7 +55,7 @@ class OWWavefront2DPadding(oasyswidget.OWWidget):
     wavefront2D = None
 
     def __init__(self):
-        super().__init__(self)
+        super().__init__()
 
         self.runaction = widget.OWAction("Compute", self)
         self.runaction.triggered.connect(self.compute)
