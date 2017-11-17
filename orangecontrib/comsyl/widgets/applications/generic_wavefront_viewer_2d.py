@@ -10,7 +10,7 @@ from oasys.widgets import gui as oasysgui
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
 
-class ComsylWavefrontViewer2D(WofryWidget):
+class GenericWavefrontViewer2D(WofryWidget):
 
     name = "Wavefront Viewer 2D"
     id = "WavefrontViewer2D"
@@ -29,6 +29,7 @@ class ComsylWavefrontViewer2D(WofryWidget):
     plot_intensity = Setting(1)
     plot_phase = Setting(0)
     plot_csd = Setting(0)
+    phase_unwrap = Setting(0)
 
     def __init__(self):
         super().__init__(is_automatic=False, show_view_options=False)
@@ -69,6 +70,13 @@ class ComsylWavefrontViewer2D(WofryWidget):
         gui.checkBox(incremental_box, self, "plot_intensity", "Plot Intensity")
         gui.checkBox(incremental_box, self, "plot_phase", "Plot Phase")
         gui.checkBox(incremental_box, self, "plot_csd", "Plot Cross spectral density")
+
+
+        gui.comboBox(self.tab_sou, self, "phase_unwrap",
+                    label="Phase unwrap ", addSpace=False,
+                    items=['No','H only','V only','First H, then V','First V then H'],
+                    valueType=int, orientation="horizontal", callback=self.refresh)
+
 
     def initializeTabs(self):
         size = len(self.tab)
@@ -173,12 +181,24 @@ class ComsylWavefrontViewer2D(WofryWidget):
                                  tabs_canvas_index=tabs_canvas_index,
                                  plot_canvas_index=0,
                                  title="Wavefront 2D Intensity",
-                                 xtitle="Horizontal Coordinate [$\mu$m]",
-                                 ytitle="Vertical Coordinate [$\mu$m]")
+                                 xtitle="Horizontal [$\mu$m] ( %d pixels)"%(self.accumulated_data["x"].size),
+                                 ytitle="Vertical [$\mu$m] (%d pixels)"%(self.accumulated_data["x"].size))
 
             if self.plot_phase:
                 tabs_canvas_index += 1
-                phase = 180.0 / numpy.pi * self.accumulated_data["phase"] / self.accumulated_data["counter"]
+                phase =self.accumulated_data["phase"] / self.accumulated_data["counter"]
+
+                if self.phase_unwrap > 0:
+                    if self.phase_unwrap == 1: # x only
+                        phase = numpy.unwrap(phase,axis=0)
+                    elif self.phase_unwrap == 2: # y only
+                        phase = numpy.unwrap(phase,axis=1)
+                    elif self.phase_unwrap == 3: # x and y
+                        phase = numpy.unwrap(numpy.unwrap(phase,axis=0),axis=1)
+                    elif self.phase_unwrap == 4: # y and x
+                        phase = numpy.unwrap(numpy.unwrap(phase,axis=1),axis=0)
+
+                phase *=  180.0 / numpy.pi
                 intensity_normalized = self.accumulated_data["intensity"] / self.accumulated_data["intensity"].max()
                 phase[numpy.where(intensity_normalized<0.1)] = 0
                 self.plot_data2D(data2D=phase,
@@ -227,7 +247,7 @@ if __name__ == '__main__':
     from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
     app = QApplication([])
-    ow = ComsylWavefrontViewer2D()
+    ow = GenericWavefrontViewer2D()
 
 
     filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
