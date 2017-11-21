@@ -1,3 +1,9 @@
+#
+# TODO:
+#      - Add progress bar
+
+
+
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect
@@ -19,10 +25,7 @@ from oasys.widgets import gui as oasysgui
 
 from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
-from matplotlib.image import AxesImage
-
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
-
 
 class OWAFViewer(widget.OWWidget):
     name = "AFViewer"
@@ -242,59 +245,64 @@ class OWAFViewer(widget.OWWidget):
     def _square_modulus(self,array1):
         return (numpy.absolute(array1))**2
 
-    def do_plot_image_in_tab(self,input_data,tab_index,title=""):
 
-        xx = self.af.x_coordinates()
-        yy = self.af.y_coordinates()
 
-        xmin = numpy.min(xx)
-        xmax = numpy.max(xx)
-        ymin = numpy.min(yy)
-        ymax = numpy.max(yy)
+    def plot_data2D(self, data2D, dataX, dataY, plot_canvas_index, title="", xtitle="", ytitle=""):
 
-        origin = (1e6*xmin, 1e6*ymin)
-        scale = (1e6*abs((xmax-xmin)/self.af.x_coordinates().size),
-                 1e6*abs((ymax-ymin)/self.af.y_coordinates().size))
+        xmin = numpy.min(dataX)
+        xmax = numpy.max(dataX)
+        ymin = numpy.min(dataY)
+        ymax = numpy.max(dataY)
+
+        origin = (xmin, ymin)
+        scale = (abs((xmax-xmin)/len(dataX)), abs((ymax-ymin)/len(dataY)))
+
+        data_to_plot = data2D.T
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
-        self.plot_canvas[tab_index] = Plot2D()
-        self.plot_canvas[tab_index].resetZoom()
-        self.plot_canvas[tab_index].setXAxisAutoScale(True)
-        self.plot_canvas[tab_index].setYAxisAutoScale(True)
-        self.plot_canvas[tab_index].setGraphGrid(False)
-        self.plot_canvas[tab_index].setKeepDataAspectRatio(True)
-        self.plot_canvas[tab_index].yAxisInvertedAction.setVisible(False)
-        self.plot_canvas[tab_index].setXAxisLogarithmic(False)
-        self.plot_canvas[tab_index].setYAxisLogarithmic(False)
-        self.plot_canvas[tab_index].getMaskAction().setVisible(False)
-        self.plot_canvas[tab_index].getRoiAction().setVisible(False)
-        self.plot_canvas[tab_index].getColormapAction().setVisible(False)
-        self.plot_canvas[tab_index].setKeepDataAspectRatio(False)
+        self.plot_canvas[plot_canvas_index] = Plot2D()
 
-        self.plot_canvas[tab_index].addImage( input_data,
+        self.plot_canvas[plot_canvas_index].resetZoom()
+        self.plot_canvas[plot_canvas_index].setXAxisAutoScale(True)
+        self.plot_canvas[plot_canvas_index].setYAxisAutoScale(True)
+        self.plot_canvas[plot_canvas_index].setGraphGrid(False)
+        self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(True)
+        self.plot_canvas[plot_canvas_index].yAxisInvertedAction.setVisible(False)
+
+        self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
+        self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
+        #silx 0.4.0
+        self.plot_canvas[plot_canvas_index].getMaskAction().setVisible(False)
+        self.plot_canvas[plot_canvas_index].getRoiAction().setVisible(False)
+        self.plot_canvas[plot_canvas_index].getColormapAction().setVisible(True)
+        self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(False)
+
+        self.plot_canvas[plot_canvas_index].addImage(numpy.array(data_to_plot),
                                                      legend="zio billy",
-                                                     colormap=colormap,
-                                                     replace=True,
+                                                     scale=scale,
                                                      origin=origin,
-                                                     scale=scale)
+                                                     colormap=colormap,
+                                                     replace=True)
 
-        self.plot_canvas[tab_index].setActiveImage("zio billy")
 
-        image = AxesImage(self.plot_canvas[tab_index]._backend.ax)
-        image.set_data( input_data )
+        self.plot_canvas[plot_canvas_index].setGraphXLabel(xtitle)
+        self.plot_canvas[plot_canvas_index].setGraphYLabel(ytitle)
+        self.plot_canvas[plot_canvas_index].setGraphTitle(title)
 
-        self.plot_canvas[tab_index]._backend.fig.colorbar(image, ax=self.plot_canvas[tab_index]._backend.ax)
-        self.plot_canvas[tab_index].setGraphXLabel("X [um]")
-        self.plot_canvas[tab_index].setGraphYLabel("Y [um]")
-        self.plot_canvas[tab_index].setGraphTitle(title)
 
-        self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
+        self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
+
 
     def do_plot(self):
 
-
         old_tab_index = self.tabs.currentIndex()
+
+        try:
+            for i in range(len(self.tab_titles)):
+                self.tab[i].layout().removeItem(self.tab[i].layout().itemAt(0))
+        except:
+            pass
 
         if self.INDIVIDUAL_MODES:
             self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","INDIVIDUAL MODES",              "SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
@@ -302,10 +310,6 @@ class OWAFViewer(widget.OWWidget):
             self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
 
         self.initializeTabs()
-
-
-        for i in range(len(self.tab_titles)):
-            self.tab[i].layout().removeItem(self.tab[i].layout().itemAt(0))
 
         if self.TYPE_PRESENTATION == 0:
             myprocess = self._square_modulus
@@ -342,9 +346,6 @@ class OWAFViewer(widget.OWWidget):
             ymin = numpy.min(yy)
             ymax = numpy.max(yy)
 
-            # integral1 = myprocess(self.af.mode(0)).sum()
-            # integral1 *= (xx[1]-xx[0])*(yy[1]-yy[0])
-            # print(">>>> Integrated values for mode %d is %f"%(0,integral1))
         else:
             raise Exception("Nothing to plot")
 
@@ -382,6 +383,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[tab_index].setGraphYLabel(y_label)
         self.plot_canvas[tab_index].addCurve(x_values, numpy.abs(self.af.occupation_array()), title0, symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
+        self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
         #
         # plot cumulated spectrum
         #
@@ -417,6 +419,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[tab_index].addCurve(x_values, numpy.cumsum(numpy.abs(self.af.occupation_array())), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
         self.plot_canvas[tab_index].setGraphYLimits(0.0,1.0)
 
+        self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
         #
         # plot all modes
         #
@@ -444,42 +447,79 @@ class OWAFViewer(widget.OWWidget):
             # self.plot_canvas[1].setStack( self.af.modes(),
             #                               calibrations=[dim0_calib, dim1_calib, dim2_calib] )
 
-            self.tab[tab_index].layout().addWidget(self.plot_canvas[1])
+            self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
         else:
             tab_index += 1
-            image = myprocess( (self.af.mode(self.MODE_INDEX)).T)
-            self.do_plot_image_in_tab(image,tab_index,title="Mode %d"%self.MODE_INDEX)
+            image = myprocess( (self.af.mode(self.MODE_INDEX)))
+            self.plot_data2D( image,
+                    1e6*self.af.x_coordinates(),
+                    1e6*self.af.y_coordinates(),
+                    tab_index,
+                    title="Mode %d"%self.MODE_INDEX,
+                    xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                    ytitle="Y [um] (%d pixels)"%(image.shape[1]))
+
+
 
         #
+
         # plot spectral density
         #
         tab_index += 1
-        image = myprocess( (self.af.spectral_density()).T)
-        self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
+        image = myprocess( (self.af.spectral_density()))
+        # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
+        self.plot_data2D( image,
+                1e6*self.af.x_coordinates(),
+                1e6*self.af.y_coordinates(),
+                tab_index,
+                title="Spectral Density (Intensity)",
+                xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                ytitle="Y [um] (%d pixels)"%(image.shape[1]))
+
 
         #
-        # plot spectral density
+        # plot spectral density from modes
         #
         if self.INDIVIDUAL_MODES:
             tab_index += 1
-            image = myprocess( (self.af.intensity_from_modes()).T)
-            self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
+            image = myprocess( (self.af.intensity_from_modes()))
+            # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
+            self.plot_data2D( image,
+                    1e6*self.af.x_coordinates(),
+                    1e6*self.af.y_coordinates(),
+                    tab_index,
+                    title="Spectral Density (Intensity)",
+                    xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                    ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
 
         #
         # plot reference electron density
         #
         tab_index += 1
-        image = numpy.abs( self.af.reference_electron_density().T )**2  #TODO: Correct? it is complex...
-        self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
-
+        image = numpy.abs( self.af.reference_electron_density() )**2  #TODO: Correct? it is complex...
+        # self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
+        self.plot_data2D( image,
+                1e6*self.af.x_coordinates(),
+                1e6*self.af.y_coordinates(),
+                tab_index,
+                title="Reference electron density",
+                xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
         #
         # plot reference undulator radiation
         #
         tab_index += 1
         image = self.af.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
-        self.do_plot_image_in_tab(image,tab_index,title="Reference undulator radiation")
+        # self.do_plot_image_in_tab(image,tab_index,title="Reference undulator radiation")
+        self.plot_data2D( image,
+                1e6*self.af.x_coordinates(),
+                1e6*self.af.y_coordinates(),
+                tab_index,
+                title="Reference undulator radiation",
+                xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
         try:
             self.tabs.setCurrentIndex(old_tab_index)
@@ -507,12 +547,15 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWAFViewer()
 
-    filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
+    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.npz"
 
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.npz"
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.5.npz"
+    filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_new_s1.0.npz"
+
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
     ow.set_selected_file(filename)
     ow.read_file()
     ow.do_plot()
