@@ -27,9 +27,9 @@ from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
-class OWAFViewer(widget.OWWidget):
-    name = "AFViewer"
-    id = "orangecontrib.comsyl.widgets.applications.AFViewer"
+class OWModesViewer(widget.OWWidget):
+    name = "ModesViewer"
+    id = "orangecontrib.comsyl.widgets.applications.comsyl_modes_viewer"
     description = ""
     icon = "icons/AFViewer.png"
     author = ""
@@ -38,11 +38,10 @@ class OWAFViewer(widget.OWWidget):
     category = ""
     keywords = ["COMSYL", "coherent modes"]
 
-    outputs = [{"name":"GenericWavefront2D",
-                "type":GenericWavefront2D,
-                "doc":"GenericWavefront2D",
-                "id":"GenericWavefront2D"},
-               {"name":"COMSYL modes",
+
+    inputs = [("COMSYL modes" , CompactAFReader, "setCompactAFReader" )]
+
+    outputs = [{"name":"COMSYL modes",
                 "type":CompactAFReader,
                 "doc":"COMSYL modes",
                 "id":"COMSYL modes"},]
@@ -57,10 +56,9 @@ class OWAFViewer(widget.OWWidget):
     beam_file_name = Setting("/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5")
 
     TYPE_PRESENTATION = Setting(0) # 0=intensity, 1=real, 2=phase
-
     INDIVIDUAL_MODES = Setting(False)
-
     MODE_INDEX = Setting(0)
+    REFERENCE_SOURCE = Setting(0)
 
     def __init__(self):
 
@@ -128,6 +126,20 @@ class OWAFViewer(widget.OWWidget):
             tab.setFixedHeight(self.IMAGE_HEIGHT)
             tab.setFixedWidth(self.IMAGE_WIDTH)
 
+
+    def setCompactAFReader(self, data):
+        if not data is None:
+            self.af = data
+            self._input_available = True
+            self.write_std_out(self.af.info(list_modes=False))
+            self.main_tabs.setCurrentIndex(1)
+            self.initialize_tabs()
+
+
+            # if self.is_automatic_run:
+            #     self.write_file()
+
+
     def write_std_out(self, text):
         cursor = self.comsyl_output.textCursor()
         cursor.movePosition(QtGui.QTextCursor.End)
@@ -137,49 +149,32 @@ class OWAFViewer(widget.OWWidget):
 
     def build_left_panel(self):
 
-        left_box_1 = oasysgui.widgetBox(self.controlArea, "Files Selection", addSpace=True, orientation="vertical")
-                                         # width=570, height=60)
-
-
-        figure_box = oasysgui.widgetBox(left_box_1, "", addSpace=True, orientation="horizontal") #width=550, height=50)
-        self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "beam_file_name", "COMSYL File:",
-                                                    labelWidth=90, valueType=str, orientation="horizontal")
-        # self.le_beam_file_name.setFixedWidth(330)
-        gui.button(figure_box, self, "...", callback=self.selectFile)
-        gui.separator(left_box_1, height=20)
-
-
-        button = gui.button(self.controlArea, self, "Read COMSYL File", callback=self.read_file)
-        button.setFixedHeight(45)
-        gui.separator(left_box_1, height=20)
-
-
-        button = gui.button(self.controlArea, self, "PLOT COMSYL data", callback=self.do_plot)
+        button = gui.button(self.controlArea, self, "PLOT MODE(S)", callback=self.do_plot)
         button.setFixedHeight(45)
 
         gui.comboBox(self.controlArea, self, "TYPE_PRESENTATION",
-                    label="Display magnitude ", addSpace=False,
+                    label="Display coherent mode ", addSpace=False,
                     items=['intensity','modulus','real part','imaginary part','angle [rad]'],
                     valueType=int, orientation="horizontal", callback=self.do_plot)
-        gui.separator(left_box_1, height=20)
 
 
         gui.comboBox(self.controlArea, self, "INDIVIDUAL_MODES",
-                    label="Access individual modes ", addSpace=False,
-                    items=['No [Fast]','Yes [Slow, memory hungry]',],
+                    label="Load all modes in memory ", addSpace=False,
+                    items=['No [Fast, Recommended]','Yes [Slow, Memory hungry]',],
                     valueType=int, orientation="horizontal", callback=self.do_plot)
-        gui.separator(left_box_1, height=20)
 
+        gui.comboBox(self.controlArea, self, "REFERENCE_SOURCE",
+                    label="Display reference source ", addSpace=False,
+                    items=['No','Yes',],
+                    valueType=int, orientation="horizontal", callback=self.do_plot)
 
 
         mode_index_box = oasysgui.widgetBox(self.controlArea, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
         oasysgui.lineEdit(mode_index_box, self, "MODE_INDEX",
-                    label="Load/Plot/Send mode ", addSpace=False,
+                    label="Mode index ", addSpace=False,
                     valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150,
                     callback=self.do_plot)
         gui.button(mode_index_box, self, "+1", callback=self.increase_mode_index)
-        gui.separator(left_box_1, height=20)
-
 
 
     def increase_mode_index(self):
@@ -187,60 +182,6 @@ class OWAFViewer(widget.OWWidget):
             raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
         self.MODE_INDEX += 1
         self.do_plot()
-
-
-    def set_selected_file(self,filename):
-        self.le_beam_file_name.setText(filename)
-
-    def selectFile(self):
-        filename = oasysgui.selectFileFromDialog(self,
-                previous_file_path=self.beam_file_name, message="Open COMSYL File [*.npy or *.npz or *.h5]",
-                start_directory=".", file_extension_filter="*.*")
-
-        self.le_beam_file_name.setText(filename)
-
-
-    def read_file(self):
-        self.setStatusMessage("")
-        filename = self.le_beam_file_name.text()
-        try:
-            if congruence.checkFileName(filename):
-
-                # just in case old file is open
-                try:
-                    self.af.close_h5_file()
-                except:
-                    pass
-
-                try:
-                    self.af = CompactAFReader.initialize_from_file(filename)
-                    self._input_available = True
-                    self.write_std_out(self.af.info(list_modes=False))
-                    self.main_tabs.setCurrentIndex(1)
-                    self.initialize_tabs()
-
-                    self.send("COMSYL modes", self.af)
-                except:
-                    raise FileExistsError("Error loading COMSYL modes from file: %s"%filename)
-
-        except:
-            raise Exception("Failed to read file %s"%filename)
-
-
-    def send_mode(self,mode_index=None):
-        if mode_index is None:
-            mode_index = self.MODE_INDEX
-        if mode_index >= self.af.number_of_modes():
-            raise Exception("Mode index out of range")
-
-
-        wf = GenericWavefront2D.initialize_wavefront_from_arrays(
-                self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(mode_index)  )
-        wf.set_photon_energy(self.af.photon_energy())
-        ampl = wf.get_complex_amplitude()
-        eigen = self.af.eigenvalues()
-        wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
-        self.send("GenericWavefront2D", wf)
 
 
     def _square_modulus(self,array1):
@@ -293,7 +234,6 @@ class OWAFViewer(widget.OWWidget):
 
         self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
-
     def do_plot(self):
 
         old_tab_index = self.tabs.currentIndex()
@@ -305,9 +245,13 @@ class OWAFViewer(widget.OWWidget):
             pass
 
         if self.INDIVIDUAL_MODES:
-            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","INDIVIDUAL MODES",              "SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","INDIVIDUAL MODES",]
+            if self.REFERENCE_SOURCE:
+                self.tab_titles += ["REFERENCE SPECTRAL DENSITY","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
         else:
-            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,]
+            if self.REFERENCE_SOURCE:
+                self.tab_titles += ["REFERENCE SPECTRAL DENSITY",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
 
         self.initialize_tabs()
 
@@ -331,6 +275,8 @@ class OWAFViewer(widget.OWWidget):
             myprocess = numpy.angle
             title0 = "Angle of eigenvalues [rad]"
             title1 = "Angle of eigenvector [rad]"
+
+
 
         if self._input_available:
             x_values = numpy.arange(self.af.number_modes())
@@ -461,30 +407,11 @@ class OWAFViewer(widget.OWWidget):
                     xtitle="X [um] (%d pixels)"%(image.shape[0]),
                     ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
-
-
-        #
-
         # plot spectral density
         #
-        tab_index += 1
-        image = myprocess( (self.af.spectral_density()))
-        # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
-        self.plot_data2D( image,
-                1e6*self.af.x_coordinates(),
-                1e6*self.af.y_coordinates(),
-                tab_index,
-                title="Spectral Density (Intensity)",
-                xtitle="X [um] (%d pixels)"%(image.shape[0]),
-                ytitle="Y [um] (%d pixels)"%(image.shape[1]))
-
-
-        #
-        # plot spectral density from modes
-        #
-        if self.INDIVIDUAL_MODES:
+        if self.REFERENCE_SOURCE:
             tab_index += 1
-            image = myprocess( (self.af.intensity_from_modes()))
+            image = myprocess( (self.af.spectral_density()))
             # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
             self.plot_data2D( image,
                     1e6*self.af.x_coordinates(),
@@ -496,40 +423,56 @@ class OWAFViewer(widget.OWWidget):
 
 
         #
+        # plot spectral density from modes
+        #
+        if self.REFERENCE_SOURCE:
+            if self.INDIVIDUAL_MODES:
+                tab_index += 1
+                image = myprocess( (self.af.intensity_from_modes()))
+                # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
+                self.plot_data2D( image,
+                        1e6*self.af.x_coordinates(),
+                        1e6*self.af.y_coordinates(),
+                        tab_index,
+                        title="Spectral Density (Intensity)",
+                        xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                        ytitle="Y [um] (%d pixels)"%(image.shape[1]))
+
+
+        #
         # plot reference electron density
         #
-        tab_index += 1
-        image = numpy.abs( self.af.reference_electron_density() )**2  #TODO: Correct? it is complex...
-        # self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
-        self.plot_data2D( image,
-                1e6*self.af.x_coordinates(),
-                1e6*self.af.y_coordinates(),
-                tab_index,
-                title="Reference electron density",
-                xtitle="X [um] (%d pixels)"%(image.shape[0]),
-                ytitle="Y [um] (%d pixels)"%(image.shape[1]))
+        if self.REFERENCE_SOURCE:
+            tab_index += 1
+            image = numpy.abs( self.af.reference_electron_density() )**2  #TODO: Correct? it is complex...
+            # self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
+            self.plot_data2D( image,
+                    1e6*self.af.x_coordinates(),
+                    1e6*self.af.y_coordinates(),
+                    tab_index,
+                    title="Reference electron density",
+                    xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                    ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
         #
         # plot reference undulator radiation
         #
-        tab_index += 1
-        image = self.af.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
-        # self.do_plot_image_in_tab(image,tab_index,title="Reference undulator radiation")
-        self.plot_data2D( image,
-                1e6*self.af.x_coordinates(),
-                1e6*self.af.y_coordinates(),
-                tab_index,
-                title="Reference undulator radiation",
-                xtitle="X [um] (%d pixels)"%(image.shape[0]),
-                ytitle="Y [um] (%d pixels)"%(image.shape[1]))
+        if self.REFERENCE_SOURCE:
+            tab_index += 1
+            image = self.af.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
+            # self.do_plot_image_in_tab(image,tab_index,title="Reference undulator radiation")
+            self.plot_data2D( image,
+                    1e6*self.af.x_coordinates(),
+                    1e6*self.af.y_coordinates(),
+                    tab_index,
+                    title="Reference undulator radiation",
+                    xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                    ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
         try:
             self.tabs.setCurrentIndex(old_tab_index)
         except:
             pass
-
-        self.send_mode()
-
 
     def get_doc(self):
         print("PhotonViewer: help pressed.\n")
@@ -547,20 +490,12 @@ class OWAFViewer(widget.OWWidget):
 if __name__ == '__main__':
 
     app = QApplication([])
-    ow = OWAFViewer()
+    ow = OWModesViewer()
 
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.npz"
 
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.npz"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.5.npz"
-    filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_new_s1.0.npz"
-
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
-    ow.set_selected_file(filename)
-    ow.read_file()
-    ow.do_plot()
+    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npy"
+    af = CompactAFReader.initialize_from_file(filename)
+    ow.setCompactAFReader(af)
 
     ow.show()
     app.exec_()
