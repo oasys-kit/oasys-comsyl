@@ -192,6 +192,8 @@ class CompactAFReader(object):
     def occupation_all_modes(self):
         return self.occupation_array().real.sum()
 
+    def cumulated_occupation_array(self):
+        return np.cumsum(np.abs(self.occupation_array()))
 
     def mode(self, i_mode):
         p = self._data_dict["twoform_4"]
@@ -330,6 +332,12 @@ class CompactAFReader(object):
         af._af.saveh5(filename_out,maximum_number_of_modes=maximum_number_of_modes)
 
         return CompactAFReader(af)
+
+    def write_h5(self,filename,maximum_number_of_modes=None):
+        self._af.saveh5(filename,maximum_number_of_modes=maximum_number_of_modes)
+
+
+
 
     def CSD_in_one_dimension(self,mode_index_max=None):
 

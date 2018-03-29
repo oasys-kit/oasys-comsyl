@@ -62,11 +62,6 @@ class OWAFViewer(widget.OWWidget):
 
     MODE_INDEX = Setting(0)
 
-    def unitLabels(self):
-         return ['Type of presentation','Mode to plot:']
-    def unitFlags(self):
-         return ['True','True']
-
     def __init__(self):
 
         super().__init__()
@@ -133,7 +128,7 @@ class OWAFViewer(widget.OWWidget):
             tab.setFixedHeight(self.IMAGE_HEIGHT)
             tab.setFixedWidth(self.IMAGE_WIDTH)
 
-    def writeStdOut(self, text):
+    def write_std_out(self, text):
         cursor = self.comsyl_output.textCursor()
         cursor.movePosition(QtGui.QTextCursor.End)
         cursor.insertText(text)
@@ -182,12 +177,12 @@ class OWAFViewer(widget.OWWidget):
                     label="Load/Plot/Send mode ", addSpace=False,
                     valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150,
                     callback=self.do_plot)
-        gui.button(mode_index_box, self, "+1", callback=self.increaseModeIndex)
+        gui.button(mode_index_box, self, "+1", callback=self.increase_mode_index)
         gui.separator(left_box_1, height=20)
 
 
 
-    def increaseModeIndex(self):
+    def increase_mode_index(self):
         if self.MODE_INDEX+1 >= self.af.number_of_modes():
             raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
         self.MODE_INDEX += 1
@@ -220,7 +215,7 @@ class OWAFViewer(widget.OWWidget):
                 try:
                     self.af = CompactAFReader.initialize_from_file(filename)
                     self._input_available = True
-                    self.writeStdOut(self.af.info(list_modes=False))
+                    self.write_std_out(self.af.info(list_modes=False))
                     self.main_tabs.setCurrentIndex(1)
                     self.initialize_tabs()
 
@@ -250,7 +245,6 @@ class OWAFViewer(widget.OWWidget):
 
     def _square_modulus(self,array1):
         return (numpy.absolute(array1))**2
-
 
 
     def plot_data2D(self, data2D, dataX, dataY, plot_canvas_index, title="", xtitle="", ytitle=""):
@@ -422,7 +416,9 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[tab_index].setYAxisLogarithmic(False)
         self.plot_canvas[tab_index].setGraphXLabel(x_label)
         self.plot_canvas[tab_index].setGraphYLabel("Cumulated occupation")
-        self.plot_canvas[tab_index].addCurve(x_values, numpy.cumsum(numpy.abs(self.af.occupation_array())), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        # self.plot_canvas[tab_index].addCurve(x_values, numpy.cumsum(numpy.abs(self.af.occupation_array())), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+        self.plot_canvas[tab_index].addCurve(x_values, self.af.cumulated_occupation_array(), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
+
         self.plot_canvas[tab_index].setGraphYLimits(0.0,1.0)
 
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
