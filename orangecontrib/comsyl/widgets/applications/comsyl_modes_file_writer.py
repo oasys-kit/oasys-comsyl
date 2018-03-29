@@ -1,4 +1,3 @@
-
 import os
 import numpy
 
@@ -7,7 +6,7 @@ from PyQt5.QtWidgets import QMessageBox
 from orangewidget import gui, widget
 from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui, congruence
-from orangewidget import gui as orangegui
+
 
 from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
@@ -19,9 +18,9 @@ class OWModesFileWriter(widget.OWWidget):
     icon = "icons/file_writer.png"
     maintainer = "Manuel Sanchez del Rio"
     maintainer_email = "srio(@at@)esrf.eu"
-    priority = 6
+    priority = 61
     category = "Utility"
-    keywords = ["data", "file", "load", "read"]
+    keywords = ["COMSYL", "coherent modes"]
 
     want_main_area = 0
 
@@ -101,11 +100,6 @@ class OWModesFileWriter(widget.OWWidget):
         #
         #
         #
-
-
-
-
-
         button = gui.button(self.controlArea, self, "Write File", callback=self.write_file)
         button.setFixedHeight(45)
         self.le_index_format.setFixedWidth(330)
@@ -126,20 +120,18 @@ class OWModesFileWriter(widget.OWWidget):
     def write_file(self):
         self.setStatusMessage("")
 
-        # try:
-        #     if not self.af is None:
-        #         congruence.checkDir(self.file_name)
-        #
-        #         ###self.af.save_h5_file(self.file_name,self.index_format)
-        if True:
-                print(">>>>>>>>>>>>>>>>>>")
+        try:
+            if not self.af is None:
+                congruence.checkDir(self.file_name)
+
 
                 if self.TYPE_OF_OUTPUT == 0: # ['COMSYL hdf5 with multi-mode','WOFRY hdf5 with multi-mode','WOFRY multiple files'
                     if self.ALL_MODES:
                         self.af.write_h5(self.file_name,maximum_number_of_modes=None)
                     else:
                         self.af.write_h5(self.file_name,maximum_number_of_modes=self.MODE_TO)
-                    print("File writte to disk: %s"%self.file_name)
+                        path, file_name = os.path.split(self.file_name)
+                        self.setStatusMessage("File Out: " + file_name)
                 else: # WOFRY
                     if self.ALL_MODES == 0 and (self.MODE_TO < self.af.number_of_modes()):
                         nmax = self.MODE_TO
@@ -168,23 +160,21 @@ class OWModesFileWriter(widget.OWWidget):
                             w.save_h5_file(file_name,subgroupname=subgroupname,intensity=True,phase=True,overwrite=True)
                         else:
                             w.save_h5_file(file_name,subgroupname=subgroupname,intensity=True,phase=True,overwrite=overwrite)
-                            self.setStatusMessage("File Out: " + file_name)
+                        path, file_name = os.path.split(file_name)
+                        self.setStatusMessage("File Out: " + file_name)
 
 
 
+                # path, file_name = os.path.split(self.file_name)
 
+                # self.setStatusMessage("File Out: " + file_name)
 
-        #
-        #         path, file_name = os.path.split(self.file_name)
-        #
-        #         self.setStatusMessage("File Out: " + file_name)
-        #
-        #     else:
-        #         QMessageBox.critical(self, "Error",
-        #                              "COMSYL modes not present",
-        #                              QMessageBox.Ok)
-        # except Exception as exception:
-        #     QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
+            else:
+                QMessageBox.critical(self, "Error",
+                                     "COMSYL modes not present",
+                                     QMessageBox.Ok)
+        except Exception as exception:
+            QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
 
 
 if __name__ == "__main__":

@@ -36,7 +36,7 @@ class OWAFViewer(widget.OWWidget):
     maintainer_email = "srio@esrf.fr"
     priority = 40
     category = ""
-    keywords = ["AFViewer", "COMSYL", "EigenStates","AutocorrelationFunction"]
+    keywords = ["COMSYL", "coherent modes"]
 
     outputs = [{"name":"GenericWavefront2D",
                 "type":GenericWavefront2D,
