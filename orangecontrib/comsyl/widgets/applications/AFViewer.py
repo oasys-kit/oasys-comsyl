@@ -41,7 +41,11 @@ class OWAFViewer(widget.OWWidget):
     outputs = [{"name":"GenericWavefront2D",
                 "type":GenericWavefront2D,
                 "doc":"GenericWavefront2D",
-                "id":"GenericWavefront2D"}]
+                "id":"GenericWavefront2D"},
+               {"name":"COMSYL modes",
+                "type":CompactAFReader,
+                "doc":"COMSYL modes",
+                "id":"COMSYL modes"},]
 
     IMAGE_WIDTH = 760
     IMAGE_HEIGHT = 545
@@ -96,7 +100,7 @@ class OWAFViewer(widget.OWWidget):
         self.tabs = gui.tabWidget(plot_tab)
         self.info = gui.tabWidget(info_tab)
         self.tab_titles = [] #["SPECTRUM","ALL MODES","MODE XX"]
-        self.initializeTabs()
+        self.initialize_tabs()
 
         # info tab
         self.comsyl_output = QtWidgets.QTextEdit()
@@ -110,7 +114,7 @@ class OWAFViewer(widget.OWWidget):
 
 
 
-    def initializeTabs(self):
+    def initialize_tabs(self):
 
         size = len(self.tab)
         indexes = range(0, size)
@@ -218,7 +222,9 @@ class OWAFViewer(widget.OWWidget):
                     self._input_available = True
                     self.writeStdOut(self.af.info(list_modes=False))
                     self.main_tabs.setCurrentIndex(1)
-                    self.initializeTabs()
+                    self.initialize_tabs()
+
+                    self.send("COMSYL modes", self.af)
                 except:
                     raise FileExistsError("Error loading COMSYL modes from file: %s"%filename)
 
@@ -309,7 +315,7 @@ class OWAFViewer(widget.OWWidget):
         else:
             self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
 
-        self.initializeTabs()
+        self.initialize_tabs()
 
         if self.TYPE_PRESENTATION == 0:
             myprocess = self._square_modulus

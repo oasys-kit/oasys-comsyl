@@ -97,13 +97,8 @@ def test_compare_h5_np(filename_h5,filename_np,do_plot_CSD=False):
 
 
 
-def test_id16(plot_spectrum=True,plot_mode=False):
-    # ID16 hb
-    filename_hb_h5 = "/tmp_14_days/srio/id16s_hb_u18_1400mm_1h_s1.0.h5"
-    filename_hb_np = "/tmp_14_days/srio/id16s_hb_u18_1400mm_1h_s1.0.npz"
-    #
-    filename_ebs_h5 = "/tmp_14_days/srio/id16s_ebs_u18_1400mm_1h_s1.0.h5"
-    filename_ebs_np = "/tmp_14_days/srio/id16s_ebs_u18_1400mm_1h_s1.0.npz"
+def test_id16(filename_ebs_np,filename_hb_np,plot_spectrum=True,plot_mode=False):
+
 
     if plot_spectrum:
         af_hb  = CompactAFReader.initialize_from_file(filename_hb_np)
@@ -138,10 +133,18 @@ if __name__ == "__main__":
     filename_h5 = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
     filename_np = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npz"
 
-    # test_compare_h5_np(filename_h5,filename_np,do_plot_CSD=True)
+    test_compare_h5_np(filename_h5,filename_np,do_plot_CSD=True)
 
 
-    test_id16()
+    # ID16 hb
+    filename_hb_h5  = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
+    filename_hb_np  = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.npz"
+    filename_ebs_h5 = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.h5"
+    filename_ebs_np = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.npz"
+
+    test_id16(filename_ebs_np,filename_hb_np)
+
+    # CompactAFReader.convert_to_h5("/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_new_s1.0.npz")
 
 
 

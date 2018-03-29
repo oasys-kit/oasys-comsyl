@@ -244,9 +244,14 @@ class CompactAFReader(object):
         # return np.abs(intensity).sum()
         return self.intensity_from_modes().sum()
 
-    def intensity_from_modes(self):
+    def intensity_from_modes(self,max_mode_index=None):
         intensity = np.zeros_like(self.mode(0))
-        for i_e, eigenvalue in enumerate(self.eigenvalues()):
+        eigenvalues = self.eigenvalues()
+        if max_mode_index is None:
+            pass
+        else:
+            eigenvalues = eigenvalues[0:max_mode_index+1]
+        for i_e, eigenvalue in enumerate(eigenvalues):
             intensity += eigenvalue * np.abs(self.mode(i_e))**2
         return np.abs(intensity)
 
