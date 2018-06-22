@@ -28,10 +28,10 @@ from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
 class OWAFViewer(widget.OWWidget):
-    name = "AFViewer"
+    name = "Modes loader"
     id = "orangecontrib.comsyl.widgets.applications.AFViewer"
     description = ""
-    icon = "icons/AFViewer.png"
+    icon = "icons/loader.png"
     author = ""
     maintainer_email = "srio@esrf.fr"
     priority = 40

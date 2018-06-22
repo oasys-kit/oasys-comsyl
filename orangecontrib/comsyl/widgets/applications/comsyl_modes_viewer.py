@@ -23,15 +23,17 @@ from oasys.widgets import widget
 from oasys.widgets import congruence
 from oasys.widgets import gui as oasysgui
 
+from oasys.util.oasys_util import EmittingStream, TTYGrabber, TriggerIn, TriggerOut
+
 from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
 class OWModesViewer(widget.OWWidget):
-    name = "ModesViewer"
+    name = "ModesSelector"
     id = "orangecontrib.comsyl.widgets.applications.comsyl_modes_viewer"
     description = ""
-    icon = "icons/AFViewer.png"
+    icon = "icons/selector.png"
     author = ""
     maintainer_email = "srio@esrf.fr"
     priority = 40
@@ -39,12 +41,17 @@ class OWModesViewer(widget.OWWidget):
     keywords = ["COMSYL", "coherent modes"]
 
 
-    inputs = [("COMSYL modes" , CompactAFReader, "setCompactAFReader" )]
+    inputs = [("COMSYL modes" , CompactAFReader, "setCompactAFReader" ),
+              ("Trigger", TriggerOut, "sendNextMode")]
 
-    outputs = [{"name":"COMSYL modes",
-                "type":CompactAFReader,
-                "doc":"COMSYL modes",
-                "id":"COMSYL modes"},]
+    outputs = [{"name":"GenericWavefront2D",
+                "type":GenericWavefront2D,
+                "doc":"GenericWavefront2D",
+                "id":"GenericWavefront2D"},
+               {"name":"Trigger",
+                "type": TriggerIn,
+                "doc":"Feedback signal to load next mode",
+                "id":"Trigger"}]
 
     IMAGE_WIDTH = 760
     IMAGE_HEIGHT = 545
@@ -149,39 +156,41 @@ class OWModesViewer(widget.OWWidget):
 
     def build_left_panel(self):
 
-        button = gui.button(self.controlArea, self, "PLOT MODE(S)", callback=self.do_plot)
+        button = gui.button(self.controlArea, self, "PLOT MODE(S)", callback=self.do_plot_and_send_mode)
         button.setFixedHeight(45)
 
         gui.comboBox(self.controlArea, self, "TYPE_PRESENTATION",
                     label="Display coherent mode ", addSpace=False,
                     items=['intensity','modulus','real part','imaginary part','angle [rad]'],
-                    valueType=int, orientation="horizontal", callback=self.do_plot)
+                    valueType=int, orientation="horizontal", callback=self.do_plot_and_send_mode)
 
 
         gui.comboBox(self.controlArea, self, "INDIVIDUAL_MODES",
                     label="Load all modes in memory ", addSpace=False,
                     items=['No [Fast, Recommended]','Yes [Slow, Memory hungry]',],
-                    valueType=int, orientation="horizontal", callback=self.do_plot)
+                    valueType=int, orientation="horizontal", callback=self.do_plot_and_send_mode)
 
         gui.comboBox(self.controlArea, self, "REFERENCE_SOURCE",
                     label="Display reference source ", addSpace=False,
                     items=['No','Yes',],
-                    valueType=int, orientation="horizontal", callback=self.do_plot)
+                    valueType=int, orientation="horizontal", callback=self.do_plot_and_send_mode)
 
 
         mode_index_box = oasysgui.widgetBox(self.controlArea, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
         oasysgui.lineEdit(mode_index_box, self, "MODE_INDEX",
                     label="Mode index ", addSpace=False,
                     valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150,
-                    callback=self.do_plot)
+                    callback=self.do_plot_and_send_mode)
         gui.button(mode_index_box, self, "+1", callback=self.increase_mode_index)
 
 
     def increase_mode_index(self):
         if self.MODE_INDEX+1 >= self.af.number_of_modes():
-            raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
-        self.MODE_INDEX += 1
-        self.do_plot()
+            pass
+            # raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
+        else:
+            self.MODE_INDEX += 1
+            self.do_plot_and_send_mode()
 
 
     def _square_modulus(self,array1):
@@ -234,7 +243,7 @@ class OWModesViewer(widget.OWWidget):
 
         self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
-    def do_plot(self):
+    def do_plot_and_send_mode(self):
 
         old_tab_index = self.tabs.currentIndex()
 
@@ -474,6 +483,8 @@ class OWModesViewer(widget.OWWidget):
         except:
             pass
 
+        self.send_mode()
+
     def get_doc(self):
         print("PhotonViewer: help pressed.\n")
         home_doc = resources.package_dirname("orangecontrib.oasyscrystalpy") + "/doc_files/"
@@ -486,6 +497,21 @@ class OWModesViewer(widget.OWWidget):
         else:
             raise Exception("PhotonViewer: sys.platform did not yield an acceptable value!\n")
         os.system(command)
+
+    def send_mode(self):
+
+        wf = GenericWavefront2D.initialize_wavefront_from_arrays(
+                self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(self.MODE_INDEX)  )
+        wf.set_photon_energy(self.af.photon_energy())
+        ampl = wf.get_complex_amplitude()
+        eigen = self.af.eigenvalues()
+        wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
+        self.send("GenericWavefront2D", wf)
+
+    def sendNextMode(self,trigger):
+        if trigger and trigger.new_object == True:
+            self.increase_mode_index()
+            self.send("Trigger", TriggerIn(new_object=True))
 
 if __name__ == '__main__':
 
