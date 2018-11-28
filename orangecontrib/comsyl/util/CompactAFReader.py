@@ -4,10 +4,10 @@ import numpy as np
 from comsyl.autocorrelation.AutocorrelationFunction import AutocorrelationFunction, AutocorrelationFunctionIO
 from comsyl.autocorrelation.SigmaMatrix import SigmaMatrix
 from comsyl.autocorrelation.AutocorrelationInfo import AutocorrelationInfo
-from comsyl.math.Twoform import Twoform
+from comsyl.mathcomsyl.Twoform import Twoform
 from comsyl.waveoptics.Wavefront import NumpyWavefront
 from comsyl.autocorrelation.AutocorrelationFunctionIO import undulator_from_numpy_array
-from comsyl.math.TwoformVectors import TwoformVectorsEigenvectors, TwoformVectorsWavefronts
+from comsyl.mathcomsyl.TwoformVectors import TwoformVectorsEigenvectors, TwoformVectorsWavefronts
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
