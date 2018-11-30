@@ -279,7 +279,7 @@ class OWAFViewer(widget.OWWidget):
         self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(False)
 
         self.plot_canvas[plot_canvas_index].addImage(numpy.array(data_to_plot),
-                                                     legend="zio billy",
+                                                     legend="",
                                                      scale=scale,
                                                      origin=origin,
                                                      colormap=colormap,
@@ -376,7 +376,6 @@ class OWAFViewer(widget.OWWidget):
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
         self.plot_canvas[tab_index].setDefaultPlotLines(True)
-        self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
         self.plot_canvas[tab_index].setXAxisLogarithmic(False)
         self.plot_canvas[tab_index].setYAxisLogarithmic(False)
         self.plot_canvas[tab_index].setGraphXLabel(x_label)
@@ -411,12 +410,10 @@ class OWAFViewer(widget.OWWidget):
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
         self.plot_canvas[tab_index].setDefaultPlotLines(True)
-        self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
         self.plot_canvas[tab_index].setXAxisLogarithmic(False)
         self.plot_canvas[tab_index].setYAxisLogarithmic(False)
         self.plot_canvas[tab_index].setGraphXLabel(x_label)
         self.plot_canvas[tab_index].setGraphYLabel("Cumulated occupation")
-        # self.plot_canvas[tab_index].addCurve(x_values, numpy.cumsum(numpy.abs(self.af.occupation_array())), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
         self.plot_canvas[tab_index].addCurve(x_values, self.af.cumulated_occupation_array(), "Cumulated occupation", symbol='', xlabel="X", ylabel="Y", replace=False) #'+', '^', ','
 
         self.plot_canvas[tab_index].setGraphYLimits(0.0,1.0)
@@ -485,7 +482,6 @@ class OWAFViewer(widget.OWWidget):
         if self.INDIVIDUAL_MODES:
             tab_index += 1
             image = myprocess( (self.af.intensity_from_modes()))
-            # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
             self.plot_data2D( image,
                     1e6*self.af.x_coordinates(),
                     1e6*self.af.y_coordinates(),
@@ -514,7 +510,6 @@ class OWAFViewer(widget.OWWidget):
         #
         tab_index += 1
         image = self.af.reference_undulator_radiation()[0,:,:,0]   #TODO: Correct? is polarized?
-        # self.do_plot_image_in_tab(image,tab_index,title="Reference undulator radiation")
         self.plot_data2D( image,
                 1e6*self.af.x_coordinates(),
                 1e6*self.af.y_coordinates(),
@@ -555,7 +550,7 @@ if __name__ == '__main__':
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.npz"
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.5.npz"
-    filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_new_s1.0.npz"
+    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_new_s1.0.npz"
 
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
     ow.set_selected_file(filename)
