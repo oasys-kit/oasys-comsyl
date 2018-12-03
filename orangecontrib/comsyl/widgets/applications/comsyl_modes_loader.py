@@ -27,7 +27,7 @@ from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
-class OWAFViewer(widget.OWWidget):
+class OWModesLoader(widget.OWWidget):
     name = "Modes loader"
     id = "orangecontrib.comsyl.widgets.applications.AFViewer"
     description = ""
@@ -542,7 +542,7 @@ class OWAFViewer(widget.OWWidget):
 if __name__ == '__main__':
 
     app = QApplication([])
-    ow = OWAFViewer()
+    ow = OWModesLoader()
 
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
     # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.npz"

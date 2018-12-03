@@ -14,41 +14,37 @@ from oasys.widgets import congruence
 
 from orangecontrib.comsyl.widgets.gui.ow_comsyl_widget import OWComsylWidget
 from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
+from orangecontrib.comsyl.util.preprocessor import ComsylPreprocessorData
 
 from orangecontrib.comsyl.util.python_script import PythonConsole
-# from orangecontrib.srw.util.srw_objects import SRWData
 from orangecontrib.comsyl.util.messages import showConfirmMessage
-# from orangecontrib.srw.widgets.gui.ow_srw_widget import SRWWidget
-#
-# from wofrysrw.storage_ring.light_sources.srw_bending_magnet_light_source import SRWBendingMagnetLightSource
-# from wofrysrw.storage_ring.light_sources.srw_undulator_light_source import SRWUndulatorLightSource
+
 
 class OWComsylPropagateBeamline(OWComsylWidget):
 
-    name = "COMSYL Propagate Beamline"
+    name = "Propagate Beamline Script"
     description = "COMSYL Propagate Beamline"
-    icon = "icons/selector.png"
+    icon = "icons/propagator.png"
     maintainer = "Manuel Sanchez del Rio"
     maintainer_email = "srio(@at@)esrf.eu"
-    priority = 2
+    priority = 46
     category = ""
     keywords = ["COMSYL", "coherent modes"]
 
-    inputs = [("COMSYL modes" , CompactAFReader, "setCompactAFReader" ),]
+    inputs = [("COMSYL modes" , CompactAFReader, "setCompactAFReader" ),
+              ("COMSYL preprocessor beamline" , ComsylPreprocessorData, "setPreprocessor" ),]
 
     outputs = [{"name":"COMSYL modes",
                 "type":CompactAFReader,
                 "doc":"COMSYL modes",
                 "id":"COMSYL modes"} ]
 
-    BL_PROPAGATOR = Setting(0) # 0=wofry, 1=srw
-    BL_FROM = Setting(1) # 0=Beamline history, 1=pickle file
-    BL_PICKLE_FILE = "/scisoft/xop2.4/extensions/shadowvui/shadow3-scripts/HIGHLIGHTS/bl.p"
+    COMSYL_AF_FILE = ""
+    BL_PICKLE_FILE = ""
     MODE_INDEX = Setting(2) # maxumim mode index
     REFERENCE_SOURCE = Setting(0)
-    UNDULATOR_POSITION = 0 # 0=entyrance, 1=center
     DIRECTORY_NAME = "tmp_comsyl_propagation"
-    PYTHON_INTERPRETER = "python3"
+    PYTHON_INTERPRETER = sys.executable
 
 
     IMAGE_WIDTH = 890
@@ -82,35 +78,24 @@ class OWComsylPropagateBeamline(OWComsylWidget):
 
         gen_box = oasysgui.widgetBox(self.controlArea, "COMSYL Beamline Propagation", addSpace=False, orientation="vertical", height=530, width=self.CONTROL_AREA_WIDTH-5)
 
-        gui.comboBox(gen_box, self, "BL_PROPAGATOR", label="Propagation package",
-                     items=["WOFRY", "SRW"], labelWidth=300,
-                     valueType=int, orientation="horizontal")
 
-        gui.comboBox(gen_box, self, "BL_FROM", label="Beamline from",
-                     items=["COMSYL BL Preprocessor", "Pickle file"], labelWidth=300,
-                     valueType=int, orientation="horizontal")
+        figure_box0 = oasysgui.widgetBox(gen_box, "", addSpace=True, orientation="horizontal")
+        self.id_comsyl_af_file = oasysgui.lineEdit(figure_box0, self, "COMSYL_AF_FILE", "Comsyl File with Modes:",
+                                                    labelWidth=90, valueType=str, orientation="horizontal")
+        gui.button(figure_box0, self, "...", callback=self.select_comsyl_af_file)
 
 
         figure_box = oasysgui.widgetBox(gen_box, "", addSpace=True, orientation="horizontal")
         self.id_bl_pickle_file = oasysgui.lineEdit(figure_box, self, "BL_PICKLE_FILE", "BL Pickle File:",
                                                     labelWidth=90, valueType=str, orientation="horizontal")
-        # self.le_beam_file_name.setFixedWidth(330)
-        gui.button(figure_box, self, "...", callback=self.select_pickle_file)
-        # gui.separator(left_box_1, height=20)
+        gui.button(figure_box, self, "...", callback=self.select_bl_pickle_file)
 
-        # mode_index_box = oasysgui.widgetBox(self.controlArea, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
         oasysgui.lineEdit(gen_box, self, "MODE_INDEX",
                     label="Maximum Mode index", addSpace=False,
                     valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150)
 
-        gui.comboBox(gen_box, self, "UNDULATOR_POSITION", label="Undulator Position",
-                     items=["Entrance", "Origin"], labelWidth=300,
-                     valueType=int, orientation="horizontal")
-
-
         oasysgui.lineEdit(gen_box, self, "DIRECTORY_NAME", "Temporal Directory", labelWidth=160, valueType=str, orientation="horizontal")
         oasysgui.lineEdit(gen_box, self, "PYTHON_INTERPRETER", "Python interpreter", labelWidth=160, valueType=str, orientation="horizontal")
-
 
 
         tabs_setting = oasysgui.tabWidget(self.mainArea)
@@ -138,30 +123,44 @@ class OWComsylPropagateBeamline(OWComsylWidget):
         out_box = oasysgui.widgetBox(tab_out, "System Output", addSpace=True, orientation="horizontal", height=self.IMAGE_WIDTH - 45)
         out_box.layout().addWidget(self.shadow_output)
 
-        #############################
 
         button_box = oasysgui.widgetBox(tab_scr, "", addSpace=True, orientation="horizontal")
 
         gui.button(button_box, self, "Run Script", callback=self.execute_script, height=40)
         gui.button(button_box, self, "Save Script to File", callback=self.save_script, height=40)
 
+        #############################
 
-    def select_pickle_file(self):
-        pass
+        # self.refresh_script()
+    #
+
+    def select_comsyl_af_file(self):
+        self.id_comsyl_af_file.setText(oasysgui.selectFileFromDialog(self,
+                        self.COMSYL_AF_FILE, "Select Input File",
+                        file_extension_filter="COMSYL Files (*.npz)"))
 
 
-    def setCompactAFReader(self, data):
-        if not data is None:
-            self.af = data
-            self._input_available = True
-            self.write_std_out(self.af.info(list_modes=False))
-            self.main_tabs.setCurrentIndex(1)
-            self.initialize_tabs()
+    def select_bl_pickle_file(self):
+        self.id_bl_pickle_file.setText(oasysgui.selectFileFromDialog(self,
+                        self.BL_PICKLE_FILE, "Select Input File",
+                        file_extension_filter="COMSYL Beamline Pickle Files (*.p)"))
 
+
+    def setCompactAFReader(self, af):
+        if not af is None:
+            self.COMSYL_AF_FILE = af._af._io.fromFile()
+            self.refresh_script()
+
+    def setPreprocessor(self, data):
+        try:
+            self.BL_PICKLE_FILE = data.get_beamline_pickle_file()
+            self.refresh_script()
+        except:
+            pass
 
     def execute_script(self):
-        if showConfirmMessage(message = "Do you confirm launching a ME propagation?",
-                              informative_text="This is a very long and resource-consuming process: launching it within the OASYS environment is highly discouraged." + \
+        if showConfirmMessage(message = "Do you confirm launching a COMSYL propagation?",
+                              informative_text="This is a long and resource-consuming process: launching it within the OASYS environment is highly discouraged." + \
                                                "The suggested solution is to save the script into a file and to launch it in a different environment."):
             self._script = str(self.pythonScript.toPlainText())
             self.console.write("\nRunning script:\n")
@@ -181,65 +180,53 @@ class OWComsylPropagateBeamline(OWComsylWidget):
                                               "File " + file_name + " written to disk",
                                               QtWidgets.QMessageBox.Ok)
 
-    # def set_input(self, srw_data=SRWData()):
-    #     if not srw_data is None:
-    #         self.input_srw_data = srw_data
-    #
-    #         if self.is_automatic_run:
-    #             self.refresh_script()
-    #     else:
-    #         QtWidgets.QMessageBox.critical(self, "Error", str(e), QtWidgets.QMessageBox.Ok)
-
     def refresh_script(self):
+        dd = {"COMSYL_AF_FILE": self.COMSYL_AF_FILE,
+              "BL_PICKLE_FILE": self.BL_PICKLE_FILE,
+              "DIRECTORY_NAME": self.DIRECTORY_NAME,
+              "PYTHON_INTERPRETER": self.PYTHON_INTERPRETER,
+              "MODE_INDEX": self.MODE_INDEX,
+              }
 
-        script = """
-import pickle
-from comsyl.waveoptics.WOFRYAdapter import CWBeamline
-from comsyl.waveoptics.SRWAdapter import CSRWBeamline
-from comsyl.autocorrelation.AutocorrelationFunction import AutocorrelationFunction
+        self.pythonScript.setText(self.script_template().format_map(dd))
 
-comsyl_beamline  = pickle.load(open("/scisoft/xop2.4/extensions/shadowvui/shadow3-scripts/HIGHLIGHTS/bl.p","rb"))
+    def script_template(self):
+        return """import pickle
+from comsyl.waveoptics.WOFRYAdapter import ComsylWofryBeamline
+from comsyl.waveoptics.SRWAdapter import ComsylSRWBeamline
+#from comsyl.autocorrelation.AutocorrelationFunction import AutocorrelationFunction
+from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
-filename = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/cs_new_u18_2m_1h_s2.5.npz" # OK EBS
-autocorrelation_function = AutocorrelationFunction.load(filename)
+comsyl_beamline  = pickle.load(open("{BL_PICKLE_FILE}","rb"))
 
-directory_name = "propagation_EBS_25x25"
+filename = "{COMSYL_AF_FILE}"
+#af_comsyl = AutocorrelationFunction.load(filename)
+af_oasys = CompactAFReader.initialize_from_file(filename)
+af_comsyl = af_oasys.get_af()
 
-af_propagated = comsyl_beamline.propagate_af(autocorrelation_function,
-             directory_name=directory_name,
-             af_output_file_root="%s/propagated_beamline"%(directory_name),
-             maximum_mode=2,python_to_be_used="/users/srio/OASYS1.1d/miniconda3/bin/python")
+# **source position correction**
+source_position=af_comsyl.info().sourcePosition()
+if source_position == "entrance":
+    source_offset = af_comsyl._undulator.length() * 0.5
+elif source_position == "center":
+    source_offset = 0.0
+else:
+    raise Exception("Unhandled source position")
+print("Using source position entrance z=%f" % source_offset)
+comsyl_beamline.add_undulator_offset(source_offset)
 
-print(">>>>>>>>>>>>>>>>>",comsyl_beamline.propagation_code())
+
+af_propagated = comsyl_beamline.propagate_af(af_comsyl,
+             directory_name="{DIRECTORY_NAME}",
+             af_output_file_root="{DIRECTORY_NAME}/propagated_beamline",
+             maximum_mode={MODE_INDEX},
+             python_to_be_used="{PYTHON_INTERPRETER}")
+
+#rediagonalization
+af_propagated.diagonalizeModes({MODE_INDEX})
+af_propagated.save("{DIRECTORY_NAME}/rediagonalized")
+
 """
-        self.pythonScript.setText(script)
-
-        # if not self.input_srw_data is None:
-        #     self.pythonScript.setText("# srio@esrf.eu")
-        #
-            # try:
-            #     received_light_source = self.input_srw_data.get_srw_beamline().get_light_source()
-            #
-            #     if not (isinstance(received_light_source, SRWBendingMagnetLightSource) or isinstance(received_light_source, SRWUndulatorLightSource)):
-            #         raise ValueError("ME Script is not available with this source")
-            #
-            #     _char = 0 if self._char == 0 else 4
-            #
-            #     parameters = [self.sampFactNxNyForProp,
-            #                   self.nMacroElec,
-            #                   self.nMacroElecAvgOneProc,
-            #                   self.nMacroElecSavePer,
-            #                   self.srCalcMeth,
-            #                   self.srCalcPrec,
-            #                   self.strIntPropME_OutFileName,
-            #                   _char]
-            #
-            #     self.pythonScript.setText(self.input_srw_data.get_srw_beamline().to_python_code([self.input_srw_data.get_srw_wavefront(), True, parameters]))
-            # except Exception as e:
-            #     self.pythonScript.setText("Problem in writing python script:\n" + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
-            #
-            #     if self.IS_DEVELOP: raise e
-
 
 
 if __name__ == '__main__':
@@ -249,6 +236,9 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWComsylPropagateBeamline()
 
+    ow.COMSYL_AF_FILE = "/scisoft/users/glass/Documents/sources/Orange-SRW/comsyl/calculations/cs_new_u18_2m_1h_s2.5.npz"
+    ow.BL_PICKLE_FILE = "/scisoft/xop2.4/extensions/shadowvui/shadow3-scripts/HIGHLIGHTS/bl.p"
+    ow.refresh_script()
 
     ow.show()
     app.exec_()

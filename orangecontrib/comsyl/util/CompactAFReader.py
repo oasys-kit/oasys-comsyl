@@ -146,6 +146,11 @@ class CompactAFReader(object):
 
         return af
 
+    def get_filename(self):
+        return self._filename
+
+    def get_af(self):
+        return self._af
 
     def close_h5_file(self):
         try:

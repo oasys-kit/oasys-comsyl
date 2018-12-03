@@ -29,14 +29,14 @@ from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
-class OWModesViewer(widget.OWWidget):
+class OWModesSelector(widget.OWWidget):
     name = "ModesSelector"
     id = "orangecontrib.comsyl.widgets.applications.comsyl_modes_viewer"
     description = ""
     icon = "icons/selector.png"
     author = ""
     maintainer_email = "srio@esrf.fr"
-    priority = 40
+    priority = 45
     category = ""
     keywords = ["COMSYL", "coherent modes"]
 
@@ -331,7 +331,6 @@ class OWModesViewer(widget.OWWidget):
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
         self.plot_canvas[tab_index].setDefaultPlotLines(True)
-        self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
         self.plot_canvas[tab_index].setXAxisLogarithmic(False)
         self.plot_canvas[tab_index].setYAxisLogarithmic(False)
         self.plot_canvas[tab_index].setGraphXLabel(x_label)
@@ -366,7 +365,6 @@ class OWModesViewer(widget.OWWidget):
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
 
         self.plot_canvas[tab_index].setDefaultPlotLines(True)
-        self.plot_canvas[tab_index].setActiveCurveColor(color='darkblue')
         self.plot_canvas[tab_index].setXAxisLogarithmic(False)
         self.plot_canvas[tab_index].setYAxisLogarithmic(False)
         self.plot_canvas[tab_index].setGraphXLabel(x_label)
@@ -516,7 +514,7 @@ class OWModesViewer(widget.OWWidget):
 if __name__ == '__main__':
 
     app = QApplication([])
-    ow = OWModesViewer()
+    ow = OWModesSelector()
 
 
     filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npy"
