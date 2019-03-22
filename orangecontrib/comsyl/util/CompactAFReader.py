@@ -171,7 +171,7 @@ class CompactAFReader(object):
         return self._af.yCoordinates()
 
     def spectral_density(self):
-        return self._af.intensity()
+        return np.abs(self._af.intensity())
 
     def reference_electron_density(self):
         return self._af.staticElectronDensity()
@@ -285,37 +285,31 @@ class CompactAFReader(object):
         txt += "\n\n\n\nCOMSYL info: \n"
 
         txt += "\n\n***********************************************************************************\n"
-        txt += "%i modes\n" % self.number_modes()
-        txt += "on the grid\n"
-        txt += "x: from %e to %e\n" % (self.x_coordinates().min(), self.x_coordinates().max())
-        txt += "y: from %e to %e\n" % (self.y_coordinates().min(), self.y_coordinates().max())
+        txt += "%i modes on the grid \n" % self.number_modes()
+        txt += "x: from %e to %e (%d pixels) \n" % (self.x_coordinates().min(), self.x_coordinates().max(), self.x_coordinates().size )
+        txt += "y: from %e to %e (%d pixels) \n" % (self.y_coordinates().min(), self.y_coordinates().max(), self.y_coordinates().size )
         txt += "calculated at %f eV\n" % self.photon_energy()
         txt += "total intensity from spectral density with (maybe improper) normalization: %e\n" % self.total_intensity_from_spectral_density()
         txt += "total intensity: %g\n"%self.total_intensity()
         txt += "Occupation of all modes: %g\n"%self.occupation_all_modes()
-        txt += ">> Shape x,y, (%d,%d)\n"%(self.x_coordinates().size,self.y_coordinates().size)
-        txt += ">> Shape Spectral density "+repr(self.spectral_density().shape)+"\n"
-        txt += ">> Shape Photon Energy "+repr(self.photon_energy().shape)+"\n"
+        txt += "Lower eigenvalue: %g\n" % self.eigenvalue(0)
+        txt += "Eigenvalue_0 / Sum_Eigenvalues (coherent fraction): %g\n" % (self.eigenvalue(0) / self.eigenvalues().sum())
+        txt += "Number of Photon Energy points %d \n"%(self.photon_energy().size)
         # SLOW:
         # txt += "total intensity from modes: %g\n"%self.total_intensity_from_modes()
-        # txt += "Modes index to 90 percent occupancy: %d\n"%self.mode_up_to_percent(90.0)
-        # txt += "Modes index to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
-        # txt += "Modes index to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
+        txt += "Approximated number of modes mode to 90 percent occupancy: %d\n"%self.mode_up_to_percent(90.0)
+        txt += "Approximated number of modes mode to 95 percent occupancy: %d\n"%self.mode_up_to_percent(95.0)
+        txt += "Approximated number of modes mode to 99 percent occupancy: %d\n"%self.mode_up_to_percent(99.0)
         txt += "\n***********************************************************************************\n\n"
 
         return txt
 
     def mode_up_to_percent(self,up_to_percent):
-
-        perunit = 0.0
-        for i_mode in range(self.number_modes()):
-            occupation = self.occupation(i_mode)
-            perunit += occupation
-            if 100*perunit >= up_to_percent:
-                return i_mode
-
-        print("The modes in the file contain %4.2f (less than %4.2f) occupancy"%(100*perunit,up_to_percent))
-        return -1
+        iedge = np.where(self.cumulated_occupation_array()/self.cumulated_occupation_array()[-1] > 1e-2*up_to_percent)
+        if len(iedge[0]) == 0:
+            return -1
+        else:
+            return 1+iedge[0][0]
 
     @classmethod
     def convert_to_h5(cls,filename,filename_out=None,maximum_number_of_modes=None):
@@ -415,3 +409,10 @@ class CompactAFReader(object):
     def Wy1y2(self):
         Wy1y2,Wy1y2 = self.CSD_in_one_dimension()
         return Wy1y2
+
+
+if __name__ == "__main__":
+
+    filename = "/users/srio/Working/paper-hierarchical/CODE-COMSYL/propagation_wofry_EBS/rediagonalized.npz"
+    af = CompactAFReader.initialize_from_file(filename)
+    print(af.info())

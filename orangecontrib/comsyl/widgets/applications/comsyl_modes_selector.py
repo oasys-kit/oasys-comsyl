@@ -161,7 +161,7 @@ class OWModesSelector(widget.OWWidget):
 
         gui.comboBox(self.controlArea, self, "TYPE_PRESENTATION",
                     label="Display coherent mode ", addSpace=False,
-                    items=['intensity','modulus','real part','imaginary part','angle [rad]'],
+                    items=['intensity','modulus','real part','imaginary part','angle [rad]','intensity weighted with eigenvalue'],
                     valueType=int, orientation="horizontal", callback=self.do_plot_and_send_mode)
 
 
@@ -194,6 +194,19 @@ class OWModesSelector(widget.OWWidget):
 
 
     def _square_modulus(self,array1):
+        return (numpy.absolute(array1))**2
+
+    def _intensity_times_eigenvalue(self,array1):
+
+
+        s = array1.shape
+        if len(s) == 3: # stack
+            for i in range(s[0]):
+                array1[i] *= numpy.sqrt(self.af.eigenvalue(i).real)
+        else:
+            array1 *= numpy.sqrt(self.af.eigenvalue(self.MODE_INDEX).real)
+
+
         return (numpy.absolute(array1))**2
 
 
@@ -284,7 +297,10 @@ class OWModesSelector(widget.OWWidget):
             myprocess = numpy.angle
             title0 = "Angle of eigenvalues [rad]"
             title1 = "Angle of eigenvector [rad]"
-
+        if self.TYPE_PRESENTATION == 5:
+            myprocess = self._intensity_times_eigenvalue
+            title0 = "Intensity of eigenvalues"
+            title1 = "Intensity of eigenvector"
 
 
         if self._input_available:
@@ -502,8 +518,13 @@ class OWModesSelector(widget.OWWidget):
                 self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(self.MODE_INDEX)  )
         wf.set_photon_energy(self.af.photon_energy())
         ampl = wf.get_complex_amplitude()
-        eigen = self.af.eigenvalues()
-        wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
+
+        if self.TYPE_PRESENTATION == 5:
+            eigen = self.af.eigenvalues()
+            wf.set_complex_amplitude(ampl * numpy.sqrt(eigen[self.MODE_INDEX]))
+        else:
+            wf.set_complex_amplitude(ampl)
+
         self.send("GenericWavefront2D", wf)
 
     def sendNextMode(self,trigger):
