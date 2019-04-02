@@ -23,7 +23,7 @@ from oasys.widgets import widget
 from oasys.widgets import congruence
 from oasys.widgets import gui as oasysgui
 
-from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
+from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 

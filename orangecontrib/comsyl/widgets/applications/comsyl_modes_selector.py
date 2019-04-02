@@ -25,7 +25,7 @@ from oasys.widgets import gui as oasysgui
 
 from oasys.util.oasys_util import EmittingStream, TTYGrabber, TriggerIn, TriggerOut
 
-from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
+from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 

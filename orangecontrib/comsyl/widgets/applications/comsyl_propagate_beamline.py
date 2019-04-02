@@ -11,11 +11,10 @@ from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
 
+from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 from orangecontrib.comsyl.widgets.gui.ow_comsyl_widget import OWComsylWidget
-from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
 from orangecontrib.comsyl.util.preprocessor import ComsylPreprocessorData
-
 from orangecontrib.comsyl.util.python_script import PythonConsole
 from orangecontrib.comsyl.util.messages import showConfirmMessage
 

@@ -8,7 +8,7 @@ from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui, congruence
 
 
-from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
+from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
 

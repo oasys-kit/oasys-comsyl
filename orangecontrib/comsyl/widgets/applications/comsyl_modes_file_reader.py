@@ -9,7 +9,7 @@ from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui, congruence
 from orangewidget import gui as orangegui
 
-from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
+from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 class OWModesFileReader(widget.OWWidget):
     name = "Modes from COMSYL File"
