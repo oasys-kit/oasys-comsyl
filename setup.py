@@ -3,11 +3,11 @@
 import imp
 import os
 import sys
+from setuptools import find_packages, setup
 import subprocess
 
-NAME = 'oasys-comsyl'
-
-VERSION = '0.1'
+NAME = 'OASYS1-COMSYL'
+VERSION = '1.0.12'
 ISRELEASED = False
 
 DESCRIPTION = 'oasys-comsyl: Oasys widgets for COMSYL'
@@ -15,17 +15,17 @@ README_FILE = os.path.join(os.path.dirname(__file__), 'README.txt')
 LONG_DESCRIPTION = open(README_FILE).read()
 AUTHOR = 'M. Sanchez del Rio, M. Glass'
 AUTHOR_EMAIL = 'srio@esrf.eu'
-URL = 'https://github.com/srio/oasys-comsyl'
-DOWNLOAD_URL = 'https://github.com/srio/oasys-comsyl'
+URL = 'https://github.com/oasys-kit/oasys-comsyl'
+DOWNLOAD_URL = 'https://github.com/oasys-kit/oasys-comsyl'
 LICENSE = 'MIT'
 
 KEYWORDS = (
     'application',
-    'customer',
     'COMSYL',
     'Oasys',
     'Orange',
-)
+    'comsyl',
+    )
 
 CLASSIFIERS = (
     'Development Status :: 4 - Beta',
@@ -36,7 +36,7 @@ CLASSIFIERS = (
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
     'Intended Audience :: Science/Research',
-)
+    )
 
 
 SETUP_REQUIRES = (
@@ -44,30 +44,18 @@ SETUP_REQUIRES = (
                   )
 
 INSTALL_REQUIRES = (
-                    'setuptools',
-                   )
+                    'oasys1>=1.2.10',
+                    'comsyl'
+                    )
 
-if len({'develop', 'release', 'bdist_egg', 'bdist_rpm', 'bdist_wininst',
-        'install_egg_info', 'build_sphinx', 'egg_info', 'easy_install',
-        'upload', 'test'}.intersection(sys.argv)) > 0:
-    import setuptools
-    extra_setuptools_args = dict(
-        zip_safe=False,  # the package can run out of an .egg file
-        include_package_data=True,
-        install_requires=INSTALL_REQUIRES
-    )
-else:
-    extra_setuptools_args = dict()
+PACKAGES = find_packages(exclude=('*.tests', '*.tests.*', 'tests.*', 'tests'))
 
-from setuptools import find_packages, setup
 
-PACKAGES = find_packages(
-                         exclude = ('*.tests', '*.tests.*', 'tests.*', 'tests'),
-                         )
 
-PACKAGE_DATA = {"orangecontrib.comsyl.widgets.applications":["icons/*.png", "icons/*.jpg"],
-}
-
+PACKAGE_DATA = {
+    "orangecontrib.comsyl.widgets.app;lications":["icons/*.png", "icons/*.jpg"],
+    "orangecontrib.comsyl.widgets.tools":["icons/*.png", "icons/*.jpg"],
+    }
 
 NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.comsyl", "orangecontrib.comsyl.widgets"]
 
@@ -75,9 +63,10 @@ NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.comsyl", "orangecontrib.com
 ENTRY_POINTS = {
     'oasys.addons' : ("COMSYL = orangecontrib.comsyl", ),
     'oasys.widgets' : (
-        "COMSYL = orangecontrib.comsyl.widgets.applications",
-    ),
-}
+            "COMSYL Apps = orangecontrib.comsyl.widgets.applications",
+            "COMSYL Tools = orangecontrib.comsyl.widgets.tools",
+            ),
+    }
 
 if __name__ == '__main__':
     setup(
@@ -94,11 +83,8 @@ if __name__ == '__main__':
           classifiers = CLASSIFIERS,
           packages = PACKAGES,
           package_data = PACKAGE_DATA,
-          #py_modules = PY_MODULES,
           setup_requires = SETUP_REQUIRES,
           install_requires = INSTALL_REQUIRES,
-          #extras_require = EXTRAS_REQUIRE,
-          #dependency_links = DEPENDENCY_LINKS,
           entry_points = ENTRY_POINTS,
           namespace_packages=NAMESPACE_PACAKGES,
           include_package_data = True,

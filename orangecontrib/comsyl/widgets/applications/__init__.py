@@ -2,13 +2,13 @@
 Applications
 """
 
-NAME = "Applications"
+NAME = "COMSYL Applications"
 
-DESCRIPTION = "Applications."
+DESCRIPTION = "Widgets for COMSYL"
 
 BACKGROUND = "#00FFFF"
 
-ICON = "icons/applications.png"
+ICON = "icons/loader.png"
 
-PRIORITY = 8001
+PRIORITY = 1
 
