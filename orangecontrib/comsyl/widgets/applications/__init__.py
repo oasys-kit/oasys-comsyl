@@ -10,5 +10,5 @@ BACKGROUND = "#00FFFF"
 
 ICON = "icons/loader.png"
 
-PRIORITY = 1
+PRIORITY = 3001
 

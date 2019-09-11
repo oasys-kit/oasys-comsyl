@@ -8,6 +8,6 @@ DESCRIPTION = "Tools for COMSYL"
 
 BACKGROUND = "#00FFFF"
 
-ICON = "icons/tools.png"
+ICON = "icons/util.png"
 
-PRIORITY = 2
+PRIORITY = 3002
