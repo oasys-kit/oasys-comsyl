@@ -7,7 +7,7 @@ from setuptools import find_packages, setup
 import subprocess
 
 NAME = 'OASYS1-COMSYL'
-VERSION = '1.0.12'
+VERSION = '1.0.13'
 ISRELEASED = False
 
 DESCRIPTION = 'oasys-comsyl: Oasys widgets for COMSYL'
@@ -53,8 +53,9 @@ PACKAGES = find_packages(exclude=('*.tests', '*.tests.*', 'tests.*', 'tests'))
 
 
 PACKAGE_DATA = {
-    "orangecontrib.comsyl.widgets.app;lications":["icons/*.png", "icons/*.jpg"],
-    "orangecontrib.comsyl.widgets.tools":["icons/*.png", "icons/*.jpg"],
+    "":["icons/*.png", "icons/*.jpg"],
+    # "orangecontrib.comsyl.widgets.applications":["icons/*.png", "icons/*.jpg"],
+    # "orangecontrib.comsyl.widgets.tools":["icons/*.png", "icons/*.jpg"],
     }
 
 NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.comsyl", "orangecontrib.comsyl.widgets"]
