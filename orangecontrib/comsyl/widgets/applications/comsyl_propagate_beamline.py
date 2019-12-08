@@ -191,15 +191,13 @@ class OWComsylPropagateBeamline(OWComsylWidget):
 
     def script_template(self):
         return """import pickle
-from comsyl.waveoptics.WOFRYAdapter import ComsylWofryBeamline
+from comsyl.waveoptics.ComsylWofryBeamline import ComsylWofryBeamline
 from comsyl.waveoptics.SRWAdapter import ComsylSRWBeamline
-#from comsyl.autocorrelation.AutocorrelationFunction import AutocorrelationFunction
-from orangecontrib.comsyl.util.CompactAFReader import CompactAFReader
+from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 comsyl_beamline  = pickle.load(open("{BL_PICKLE_FILE}","rb"))
 
 filename = "{COMSYL_AF_FILE}"
-#af_comsyl = AutocorrelationFunction.load(filename)
 af_oasys = CompactAFReader.initialize_from_file(filename)
 af_comsyl = af_oasys.get_af()
 
@@ -221,9 +219,9 @@ af_propagated = comsyl_beamline.propagate_af(af_comsyl,
              maximum_mode={MODE_INDEX},
              python_to_be_used="{PYTHON_INTERPRETER}")
 
-#rediagonalization
-af_propagated.diagonalizeModes({MODE_INDEX})
-af_propagated.save("{DIRECTORY_NAME}/rediagonalized")
+#rediagonalization   **uncomment to proceed**
+#af_propagated.diagonalizeModes({MODE_INDEX})
+#af_propagated.save("{DIRECTORY_NAME}/rediagonalized")
 
 """
 

@@ -7,7 +7,7 @@ from setuptools import find_packages, setup
 import subprocess
 
 NAME = 'OASYS1-COMSYL'
-VERSION = '1.0.14'
+VERSION = '1.0.15'
 ISRELEASED = False
 
 DESCRIPTION = 'oasys-comsyl: Oasys widgets for COMSYL'
