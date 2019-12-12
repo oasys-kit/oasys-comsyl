@@ -7,7 +7,7 @@ from setuptools import find_packages, setup
 import subprocess
 
 NAME = 'OASYS1-COMSYL'
-VERSION = '1.0.15'
+VERSION = '1.0.16'
 ISRELEASED = False
 
 DESCRIPTION = 'oasys-comsyl: Oasys widgets for COMSYL'
@@ -24,7 +24,7 @@ KEYWORDS = (
     'COMSYL',
     'Oasys',
     'Orange',
-    'comsyl',
+    'comsyl>=1.0.13',
     )
 
 CLASSIFIERS = (
