@@ -27,6 +27,10 @@ from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
+from orangecontrib.wofry.util.wofry_objects import WofryData
+
+from oasys.util.oasys_util import TriggerIn, TriggerOut, EmittingStream
+
 class OWModesLoader(widget.OWWidget):
     name = "Modes loader"
     id = "orangecontrib.comsyl.widgets.applications.AFViewer"
@@ -38,14 +42,21 @@ class OWModesLoader(widget.OWWidget):
     category = ""
     keywords = ["COMSYL", "coherent modes"]
 
-    outputs = [{"name":"GenericWavefront2D",
-                "type":GenericWavefront2D,
-                "doc":"GenericWavefront2D",
-                "id":"GenericWavefront2D"},
+    inputs = [("Trigger", TriggerOut, "receive_trigger_signal"),]
+
+    outputs = [{"name":"WofryData",
+                "type":WofryData,
+                "doc":"WofryData",
+                "id":"WofryData"},
+               {"name":"Trigger",
+                "type": TriggerIn,
+                "doc":"Feedback signal to start a new beam simulation",
+                "id":"Trigger"},
                {"name":"COMSYL modes",
                 "type":CompactAFReader,
                 "doc":"COMSYL modes",
                 "id":"COMSYL modes"},]
+
 
     IMAGE_WIDTH = 760
     IMAGE_HEIGHT = 545
@@ -181,6 +192,26 @@ class OWModesLoader(widget.OWWidget):
         gui.separator(left_box_1, height=20)
 
 
+    def receive_trigger_signal(self, trigger):
+
+        if trigger and trigger.new_object == True:
+            # if trigger.has_additional_parameter("variable_name"):
+            #     variable_name = trigger.get_additional_parameter("variable_name").strip()
+            #     variable_display_name = trigger.get_additional_parameter("variable_display_name").strip()
+            #     variable_value = trigger.get_additional_parameter("variable_value")
+            #     variable_um = trigger.get_additional_parameter("variable_um")
+            #
+            #     if "," in variable_name:
+            #         variable_names = variable_name.split(",")
+            #
+            #         for variable_name in variable_names:
+            #             setattr(self, variable_name.strip(), variable_value)
+            #     else:
+            #         setattr(self, variable_name, variable_value)
+            #
+            #     self.generate()
+            self.increase_mode_index()
+
 
     def increase_mode_index(self):
         if self.MODE_INDEX+1 >= self.af.number_of_modes():
@@ -240,7 +271,10 @@ class OWModesLoader(widget.OWWidget):
         ampl = wf.get_complex_amplitude()
         eigen = self.af.eigenvalues()
         wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
-        self.send("GenericWavefront2D", wf)
+        # self.send("GenericWavefront2D", wf)
+
+        self.send("WofryData", WofryData(beamline=None, wavefront=wf))
+        # self.send("Trigger", TriggerIn(new_object=True))
 
 
     def _square_modulus(self,array1):
@@ -544,15 +578,7 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWModesLoader()
 
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.h5"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_hb_u18_1400mm_1h_s1.0.npz"
-
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.0.npz"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_sampling2p5_s2.5.npz"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_s1.5.npz"
-    # filename = "/scisoft/data/srio/COMSYL/ID16/id16s_ebs_u18_1400mm_1h_new_s1.0.npz"
-
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5"
+    filename = "/users/srio/Oasys/id18_ebs_u20_2000mm_s3.0.npy"
     ow.set_selected_file(filename)
     ow.read_file()
     ow.do_plot()

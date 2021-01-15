@@ -23,11 +23,26 @@ from oasys.widgets import widget
 from oasys.widgets import congruence
 from oasys.widgets import gui as oasysgui
 
-from oasys.util.oasys_util import EmittingStream, TTYGrabber, TriggerIn, TriggerOut
+# from oasys.util.oasys_util import EmittingStream, TTYGrabber, TriggerIn, TriggerOut
 
 from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
+
+from orangecontrib.wofry.util.wofry_objects import WofryData
+
+from oasys.util.oasys_util import TriggerIn, TriggerOut
+
+from wofryimpl.propagator.light_source import WOLightSource
+
+# from wofryimpl.beamline.beamline import WOBeamline
+#
+# class COMSYLightSource(WOLightSource):
+#     def __init__(self,
+#                  name                = "Undefined",
+#                  electron_beam       = None,
+#                  magnetic_structure  = None,):
+#         super().__init__(name=name,electron_beam=electron_beam,magnetic_structure=magnetic_structure)
 
 class OWModesSelector(widget.OWWidget):
     name = "ModesSelector"
@@ -42,16 +57,31 @@ class OWModesSelector(widget.OWWidget):
 
 
     inputs = [("COMSYL modes" , CompactAFReader, "setCompactAFReader" ),
-              ("Trigger", TriggerOut, "sendNextMode")]
+              ("Trigger", TriggerOut, "receive_trigger_signal")]
 
-    outputs = [{"name":"GenericWavefront2D",
-                "type":GenericWavefront2D,
-                "doc":"GenericWavefront2D",
-                "id":"GenericWavefront2D"},
+    # outputs = [{"name":"GenericWavefront2D",
+    #             "type":GenericWavefront2D,
+    #             "doc":"GenericWavefront2D",
+    #             "id":"GenericWavefront2D"},
+    #            {"name":"Trigger",
+    #             "type": TriggerIn,
+    #             "doc":"Feedback signal to load next mode",
+    #             "id":"Trigger"}]
+    #
+    # inputs = [("Trigger", TriggerOut, "receive_trigger_signal"),]
+
+    outputs = [{"name":"WofryData",
+                "type":WofryData,
+                "doc":"WofryData",
+                "id":"WofryData"},
                {"name":"Trigger",
                 "type": TriggerIn,
-                "doc":"Feedback signal to load next mode",
-                "id":"Trigger"}]
+                "doc":"Feedback signal to start a new beam simulation",
+                "id":"Trigger"},
+               {"name":"COMSYL modes",
+                "type":CompactAFReader,
+                "doc":"COMSYL modes",
+                "id":"COMSYL modes"},]
 
     IMAGE_WIDTH = 760
     IMAGE_HEIGHT = 545
@@ -183,6 +213,27 @@ class OWModesSelector(widget.OWWidget):
                     callback=self.do_plot_and_send_mode)
         gui.button(mode_index_box, self, "+1", callback=self.increase_mode_index)
 
+
+    def receive_trigger_signal(self, trigger):
+
+        if trigger and trigger.new_object == True:
+            if trigger.has_additional_parameter("variable_name"):
+                variable_name = trigger.get_additional_parameter("variable_name").strip()
+                variable_display_name = trigger.get_additional_parameter("variable_display_name").strip()
+                variable_value = trigger.get_additional_parameter("variable_value")
+                variable_um = trigger.get_additional_parameter("variable_um")
+
+                if "," in variable_name:
+                    variable_names = variable_name.split(",")
+
+                    for variable_name in variable_names:
+                        setattr(self, variable_name.strip(), variable_value)
+                else:
+                    setattr(self, variable_name, variable_value)
+
+                self.do_plot_and_send_mode()
+            else:
+                self.increase_mode_index()
 
     def increase_mode_index(self):
         if self.MODE_INDEX+1 >= self.af.number_of_modes():
@@ -525,12 +576,16 @@ class OWModesSelector(widget.OWWidget):
         else:
             wf.set_complex_amplitude(ampl)
 
-        self.send("GenericWavefront2D", wf)
+        self.send("WofryData", WofryData(wavefront=wf))
+        # self.send("GenericWavefront2D", wf)
 
-    def sendNextMode(self,trigger):
-        if trigger and trigger.new_object == True:
-            self.increase_mode_index()
-            self.send("Trigger", TriggerIn(new_object=True))
+    # def sendNextMode(self,trigger):
+    #     if trigger and trigger.new_object == True:
+    #         self.increase_mode_index()
+    #         self.send("Trigger", TriggerIn(new_object=True))
+
+    def get_light_source(self):
+        return COMSYLLightSource()
 
 if __name__ == '__main__':
 
@@ -538,7 +593,7 @@ if __name__ == '__main__':
     ow = OWModesSelector()
 
 
-    filename = "/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.npy"
+    filename = "/users/srio/Oasys/id18_ebs_u20_2000mm_s3.0.npy"
     af = CompactAFReader.initialize_from_file(filename)
     ow.setCompactAFReader(af)
 
