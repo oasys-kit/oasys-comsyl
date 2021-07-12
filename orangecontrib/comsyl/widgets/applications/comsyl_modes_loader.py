@@ -3,8 +3,6 @@
 #      - Add progress bar
 
 
-
-from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect
 
@@ -13,9 +11,9 @@ from PyQt5 import  QtGui, QtWidgets
 from silx.gui.plot import PlotWindow, Plot2D
 from silx.gui.plot.StackView import StackViewMainWindow
 
-import os
-import sys
 import numpy
+
+from orangewidget import widget as orange_widget
 
 from orangewidget import gui
 from orangewidget.settings import Setting
@@ -25,11 +23,8 @@ from oasys.widgets import gui as oasysgui
 
 from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
-from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
 
-from orangecontrib.wofry.util.wofry_objects import WofryData
-
-from oasys.util.oasys_util import TriggerIn, TriggerOut, EmittingStream
+# from oasys.util.oasys_util import TriggerIn, TriggerOut, EmittingStream
 
 class OWModesLoader(widget.OWWidget):
     name = "Modes loader"
@@ -42,20 +37,12 @@ class OWModesLoader(widget.OWWidget):
     category = ""
     keywords = ["COMSYL", "coherent modes"]
 
-    inputs = [("Trigger", TriggerOut, "receive_trigger_signal"),]
-
-    outputs = [{"name":"WofryData",
-                "type":WofryData,
-                "doc":"WofryData",
-                "id":"WofryData"},
-               {"name":"Trigger",
-                "type": TriggerIn,
-                "doc":"Feedback signal to start a new beam simulation",
-                "id":"Trigger"},
-               {"name":"COMSYL modes",
-                "type":CompactAFReader,
-                "doc":"COMSYL modes",
-                "id":"COMSYL modes"},]
+    outputs = [
+                {"name": "COMSYL modes",
+                "type": CompactAFReader,
+                "doc": "COMSYL modes",
+                "id": "COMSYL modes"},
+                ]
 
 
     IMAGE_WIDTH = 760
@@ -63,7 +50,6 @@ class OWModesLoader(widget.OWWidget):
     MAX_WIDTH = 1320
     MAX_HEIGHT = 700
     CONTROL_AREA_WIDTH = 405
-    # TABS_AREA_HEIGHT = 560
 
     beam_file_name = Setting("/users/srio/COMSYLD/comsyl/comsyl/calculations/septest_cm_new_u18_2m_1h_s2.5.h5")
 
@@ -79,6 +65,12 @@ class OWModesLoader(widget.OWWidget):
 
         self._input_available = False
         self.af = None
+
+
+        self.runaction = orange_widget.OWAction("Load COMSYL files", self)
+        self.runaction.triggered.connect(self.read_file)
+        self.addAction(self.runaction)
+
 
         geom = QApplication.desktop().availableGeometry()
         self.setGeometry(QRect(round(geom.width()*0.05),
@@ -105,7 +97,7 @@ class OWModesLoader(widget.OWWidget):
         self.tab = []
         self.tabs = gui.tabWidget(plot_tab)
         self.info = gui.tabWidget(info_tab)
-        self.tab_titles = [] #["SPECTRUM","ALL MODES","MODE XX"]
+        self.tab_titles = []
         self.initialize_tabs()
 
         # info tab
@@ -149,33 +141,27 @@ class OWModesLoader(widget.OWWidget):
     def build_left_panel(self):
 
         left_box_1 = oasysgui.widgetBox(self.controlArea, "Files Selection", addSpace=True, orientation="vertical")
-                                         # width=570, height=60)
-
 
         figure_box = oasysgui.widgetBox(left_box_1, "", addSpace=True, orientation="horizontal") #width=550, height=50)
         self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "beam_file_name", "COMSYL File:",
                                                     labelWidth=90, valueType=str, orientation="horizontal")
-        # self.le_beam_file_name.setFixedWidth(330)
         gui.button(figure_box, self, "...", callback=self.selectFile)
-        gui.separator(left_box_1, height=20)
-
+        gui.separator(left_box_1)
 
         button = gui.button(self.controlArea, self, "Read COMSYL File", callback=self.read_file)
         button.setFixedHeight(45)
-        gui.separator(left_box_1, height=20)
 
 
-        button = gui.button(self.controlArea, self, "PLOT COMSYL data", callback=self.do_plot)
-        button.setFixedHeight(45)
 
-        gui.comboBox(self.controlArea, self, "TYPE_PRESENTATION",
+        left_box_2 = oasysgui.widgetBox(self.controlArea, "Display mode", addSpace=True, orientation="vertical")
+
+        gui.comboBox(left_box_2, self, "TYPE_PRESENTATION",
                     label="Display magnitude ", addSpace=False,
                     items=['intensity','modulus','real part','imaginary part','angle [rad]'],
                     valueType=int, orientation="horizontal", callback=self.do_plot)
         gui.separator(left_box_1, height=20)
 
-
-        gui.comboBox(self.controlArea, self, "INDIVIDUAL_MODES",
+        gui.comboBox(left_box_2, self, "INDIVIDUAL_MODES",
                     label="Access individual modes ", addSpace=False,
                     items=['No [Fast]','Yes [Slow, memory hungry]',],
                     valueType=int, orientation="horizontal", callback=self.do_plot)
@@ -183,34 +169,15 @@ class OWModesLoader(widget.OWWidget):
 
 
 
-        mode_index_box = oasysgui.widgetBox(self.controlArea, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
+        mode_index_box = oasysgui.widgetBox(left_box_2, "", addSpace=True, orientation="horizontal", ) #width=550, height=50)
         oasysgui.lineEdit(mode_index_box, self, "MODE_INDEX",
-                    label="Load/Plot/Send mode ", addSpace=False,
-                    valueType=int, validator=QIntValidator(), orientation="horizontal", labelWidth=150,
+                    label="Plot mode ", addSpace=False,
+                    valueType=int, orientation="horizontal", labelWidth=150,
                     callback=self.do_plot)
         gui.button(mode_index_box, self, "+1", callback=self.increase_mode_index)
-        gui.separator(left_box_1, height=20)
 
-
-    def receive_trigger_signal(self, trigger):
-
-        if trigger and trigger.new_object == True:
-            # if trigger.has_additional_parameter("variable_name"):
-            #     variable_name = trigger.get_additional_parameter("variable_name").strip()
-            #     variable_display_name = trigger.get_additional_parameter("variable_display_name").strip()
-            #     variable_value = trigger.get_additional_parameter("variable_value")
-            #     variable_um = trigger.get_additional_parameter("variable_um")
-            #
-            #     if "," in variable_name:
-            #         variable_names = variable_name.split(",")
-            #
-            #         for variable_name in variable_names:
-            #             setattr(self, variable_name.strip(), variable_value)
-            #     else:
-            #         setattr(self, variable_name, variable_value)
-            #
-            #     self.generate()
-            self.increase_mode_index()
+        button = gui.button(self.controlArea, self, "PLOT COMSYL data", callback=self.do_plot)
+        button.setFixedHeight(45)
 
 
     def increase_mode_index(self):
@@ -230,18 +197,17 @@ class OWModesLoader(widget.OWWidget):
 
         self.le_beam_file_name.setText(filename)
 
-
     def read_file(self):
         self.setStatusMessage("")
         filename = self.le_beam_file_name.text()
         try:
             if congruence.checkFileName(filename):
 
-                # just in case old file is open
-                try:
-                    self.af.close_h5_file()
-                except:
-                    pass
+                # # just in case old file is open
+                # try:
+                #     self.af.close_h5_file()
+                # except:
+                #     pass
 
                 try:
                     self.af = CompactAFReader.initialize_from_file(filename)
@@ -257,29 +223,8 @@ class OWModesLoader(widget.OWWidget):
         except:
             raise Exception("Failed to read file %s"%filename)
 
-
-    def send_mode(self,mode_index=None):
-        if mode_index is None:
-            mode_index = self.MODE_INDEX
-        if mode_index >= self.af.number_of_modes():
-            raise Exception("Mode index out of range")
-
-
-        wf = GenericWavefront2D.initialize_wavefront_from_arrays(
-                self.af.x_coordinates(),self.af.y_coordinates(), self.af.mode(mode_index)  )
-        wf.set_photon_energy(self.af.photon_energy())
-        ampl = wf.get_complex_amplitude()
-        eigen = self.af.eigenvalues()
-        wf.set_complex_amplitude(ampl * eigen[self.MODE_INDEX])
-        # self.send("GenericWavefront2D", wf)
-
-        self.send("WofryData", WofryData(beamline=None, wavefront=wf))
-        # self.send("Trigger", TriggerIn(new_object=True))
-
-
     def _square_modulus(self,array1):
         return (numpy.absolute(array1))**2
-
 
     def plot_data2D(self, data2D, dataX, dataY, plot_canvas_index, title="", xtitle="", ytitle=""):
 
@@ -306,7 +251,7 @@ class OWModesLoader(widget.OWWidget):
 
         self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
         self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
-        #silx 0.4.0
+
         self.plot_canvas[plot_canvas_index].getMaskAction().setVisible(False)
         self.plot_canvas[plot_canvas_index].getRoiAction().setVisible(False)
         self.plot_canvas[plot_canvas_index].getColormapAction().setVisible(True)
@@ -327,7 +272,6 @@ class OWModesLoader(widget.OWWidget):
 
         self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
-
     def do_plot(self):
 
         old_tab_index = self.tabs.currentIndex()
@@ -339,9 +283,22 @@ class OWModesLoader(widget.OWWidget):
             pass
 
         if self.INDIVIDUAL_MODES:
-            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","INDIVIDUAL MODES",              "SPECTRAL DENSITY (INTENSITY)","SPECTRAL INTENSITY FROM MODES","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+            self.tab_titles = ["SPECTRUM",
+                               "CUMULATED SPECTRUM",
+                               "SPECTRAL DENSITY (INTENSITY)",
+                               "SPECTRAL INTENSITY FROM MODES",
+                               "REFERENCE ELECRON DENSITY",
+                               "REFERENCE UNDULATOR WAVEFRONT",
+                               "INDIVIDUAL MODES",
+                               ]
         else:
-            self.tab_titles = ["SPECTRUM","CUMULATED SPECTRUM","MODE INDEX: %d"%self.MODE_INDEX,"SPECTRAL DENSITY (INTENSITY)",                                "REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
+            self.tab_titles = ["SPECTRUM",
+                               "CUMULATED SPECTRUM",
+                               "SPECTRAL DENSITY (INTENSITY)",
+                               "REFERENCE ELECRON DENSITY",
+                               "REFERENCE UNDULATOR WAVEFRONT",
+                               "MODE INDEX: %d" % self.MODE_INDEX,
+                               ]
 
         self.initialize_tabs()
 
@@ -453,54 +410,12 @@ class OWModesLoader(widget.OWWidget):
         self.plot_canvas[tab_index].setGraphYLimits(0.0,1.0)
 
         self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
-        #
-        # plot all modes
-        #
-
-        if self.INDIVIDUAL_MODES:
-            tab_index += 1
-            dim0_calib = (0, 1)
-            dim1_calib = (1e6*yy[0], 1e6*(yy[1]-yy[0]))
-            dim2_calib = (1e6*xx[0], 1e6*(xx[1]-xx[0]))
-
-
-            colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
-
-            self.plot_canvas[tab_index] = StackViewMainWindow()
-            self.plot_canvas[tab_index].setGraphTitle(title1)
-            self.plot_canvas[tab_index].setLabels(["Mode number",
-                                           "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
-                                           "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax),
-                                           ])
-            self.plot_canvas[tab_index].setColormap(colormap=colormap)
-
-            self.plot_canvas[tab_index].setStack( myprocess(numpy.swapaxes(self.af.modes(),2,1)),
-                                          calibrations=[dim0_calib, dim1_calib, dim2_calib] )
-
-            # self.plot_canvas[1].setStack( self.af.modes(),
-            #                               calibrations=[dim0_calib, dim1_calib, dim2_calib] )
-
-            self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
-        else:
-            tab_index += 1
-            image = myprocess( (self.af.mode(self.MODE_INDEX)))
-            self.plot_data2D( image,
-                    1e6*self.af.x_coordinates(),
-                    1e6*self.af.y_coordinates(),
-                    tab_index,
-                    title="Mode %d"%self.MODE_INDEX,
-                    xtitle="X [um] (%d pixels)"%(image.shape[0]),
-                    ytitle="Y [um] (%d pixels)"%(image.shape[1]))
-
-
 
         #
-
         # plot spectral density
         #
         tab_index += 1
         image = myprocess( (self.af.spectral_density()))
-        # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
         self.plot_data2D( image,
                 1e6*self.af.x_coordinates(),
                 1e6*self.af.y_coordinates(),
@@ -530,7 +445,6 @@ class OWModesLoader(widget.OWWidget):
         #
         tab_index += 1
         image = numpy.abs( self.af.reference_electron_density() )**2  #TODO: Correct? it is complex...
-        # self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
         self.plot_data2D( image,
                 1e6*self.af.x_coordinates(),
                 1e6*self.af.y_coordinates(),
@@ -552,33 +466,58 @@ class OWModesLoader(widget.OWWidget):
                 xtitle="X [um] (%d pixels)"%(image.shape[0]),
                 ytitle="Y [um] (%d pixels)"%(image.shape[1]))
 
+        #
+        # plot all modes
+        #
+
+        if self.INDIVIDUAL_MODES:
+            tab_index += 1
+            dim0_calib = (0, 1)
+            dim1_calib = (1e6*yy[0], 1e6*(yy[1]-yy[0]))
+            dim2_calib = (1e6*xx[0], 1e6*(xx[1]-xx[0]))
+
+
+            colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+
+            self.plot_canvas[tab_index] = StackViewMainWindow()
+            self.plot_canvas[tab_index].setGraphTitle(title1)
+            self.plot_canvas[tab_index].setLabels(["Mode number",
+                                           "Y index from %4.2f to %4.2f um"%(1e6*ymin,1e6*ymax),
+                                           "X index from %4.2f to %4.2f um"%(1e6*xmin,1e6*xmax),
+                                           ])
+            self.plot_canvas[tab_index].setColormap(colormap=colormap)
+
+            self.plot_canvas[tab_index].setStack( myprocess(numpy.swapaxes(self.af.modes(),2,1)),
+                                          calibrations=[dim0_calib, dim1_calib, dim2_calib] )
+
+            self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
+        else:
+            tab_index += 1
+            image = myprocess( (self.af.mode(self.MODE_INDEX)))
+            self.plot_data2D( image,
+                    1e6*self.af.x_coordinates(),
+                    1e6*self.af.y_coordinates(),
+                    tab_index,
+                    title="Mode %d"%self.MODE_INDEX,
+                    xtitle="X [um] (%d pixels)"%(image.shape[0]),
+                    ytitle="Y [um] (%d pixels)"%(image.shape[1]))
+
+        #
         try:
             self.tabs.setCurrentIndex(old_tab_index)
         except:
             pass
 
-        self.send_mode()
-
 
     def get_doc(self):
-        print("PhotonViewer: help pressed.\n")
-        home_doc = resources.package_dirname("orangecontrib.oasyscrystalpy") + "/doc_files/"
-        filename1 = os.path.join(home_doc, 'CrystalViewer'+'.txt')
-        print("PhotonViewer: Opening file %s\n" % filename1)
-        if sys.platform == 'darwin':
-            command = "open -a TextEdit "+filename1+" &"
-        elif sys.platform == 'linux':
-            command = "gedit "+filename1+" &"
-        else:
-            raise Exception("PhotonViewer: sys.platform did not yield an acceptable value!\n")
-        os.system(command)
+        pass
 
 if __name__ == '__main__':
 
     app = QApplication([])
     ow = OWModesLoader()
 
-    filename = "/users/srio/Oasys/id18_ebs_u20_2000mm_s3.0.npy"
+    filename = "/scisoft/users/srio/COMSYL-SLURM/comsyl/comsyl-submit/calculations/id18_ebs_u18_2500mm_s6.0.npz"
     ow.set_selected_file(filename)
     ow.read_file()
     ow.do_plot()

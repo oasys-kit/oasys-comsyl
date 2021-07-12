@@ -3,33 +3,25 @@
 #      - Add progress bar
 
 
-
-from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QRect
 from PyQt5.QtGui import QPalette, QColor, QFont
 
-from PyQt5 import  QtGui, QtWidgets
 
 from silx.gui.plot import PlotWindow, Plot2D
 from silx.gui.plot.StackView import StackViewMainWindow
 
-import os
-import sys
 import numpy
 
 from orangewidget import gui
 from orangewidget.settings import Setting
 from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
 
-from oasys.widgets import widget
+from orangewidget import widget
 from oasys.widgets import congruence
 from oasys.widgets import gui as oasysgui
 
 from wofry.propagator.wavefront2D.generic_wavefront import GenericWavefront2D
-from wofryimpl.propagator.light_source import WOLightSource
 from wofryimpl.beamline.beamline import WOBeamline
-# from oasys.util.oasys_util import EmittingStream, TTYGrabber, TriggerIn, TriggerOut
 
 from comsyl.autocorrelation.CompactAFReader import CompactAFReader
 
@@ -68,14 +60,6 @@ class OWModesSelector(WofryWidget):
                 "doc":"COMSYL modes",
                 "id":"COMSYL modes"},]
 
-    # IMAGE_WIDTH = 760
-    # IMAGE_HEIGHT = 545
-    # MAX_WIDTH = 1320
-    # MAX_HEIGHT = 700
-    # CONTROL_AREA_WIDTH = 405
-    # # TABS_AREA_HEIGHT = 560
-
-    beam_file_name = Setting("/users/srio/Oasys/id18_ebs_u18_2500mm_s3.0.npz")
 
     NORMALIZATION = Setting(1) # 0=No, 1=With eigenvalues
     TYPE_PRESENTATION = Setting(0) # 0=intensity, 1=real, 2=phase
@@ -83,14 +67,16 @@ class OWModesSelector(WofryWidget):
     MODE_INDEX = Setting(0)
     REFERENCE_SOURCE = Setting(0)
 
+    # IS_DEVELOP = True
+    _input_available = False
+
     def __init__(self):
 
+        super().__init__(is_automatic=True, show_view_options=True, show_script_tab=True)
 
-        super().__init__(is_automatic=False, show_view_options=True, show_script_tab=True)
-
-        # self.runaction = widget.OWAction("Generate Wavefront", self)
-        # self.runaction.triggered.connect(self.do_plot_and_send_mode)
-        # self.addAction(self.runaction)
+        self.runaction = widget.OWAction("Generate Wavefront", self)
+        self.runaction.triggered.connect(self.do_plot_and_send_mode)
+        self.addAction(self.runaction)
 
         gui.separator(self.controlArea)
         gui.separator(self.controlArea)
@@ -146,7 +132,7 @@ class OWModesSelector(WofryWidget):
         mode_index_box = oasysgui.widgetBox(self.tab_settings, "", addSpace=True, orientation="horizontal")
 
         left_box_5 = oasysgui.widgetBox(mode_index_box, "", addSpace=True, orientation="horizontal", )
-        tmp = oasysgui.lineEdit(left_box_5, self, "MODE_INDEX", "Send mode",
+        oasysgui.lineEdit(left_box_5, self, "MODE_INDEX", "Send mode",
                         labelWidth=200, valueType=int, tooltip = "mode_index",
                         orientation="horizontal", callback=self.do_plot_and_send_mode)
 
@@ -157,9 +143,10 @@ class OWModesSelector(WofryWidget):
 
     def list_TYPE_PRESENTATION(self):
         return ['intensity','modulus','real part','imaginary part','angle [rad]']
+
     def get_light_source(self):
         return WOLightSourceCOMSYL(name=self.name,
-                                   filename=self.beam_file_name,
+                                   filename=self.af._filename,
                                    mode_index=self.MODE_INDEX,
                                    normalize_with_eigenvalue=self.NORMALIZATION)
 
@@ -190,6 +177,7 @@ class OWModesSelector(WofryWidget):
             self.wofry_output.setText(self.af.info(list_modes=False))
             self.main_tabs.setCurrentIndex(1)
             self.initializeTabs()
+            self.do_plot_and_send_mode()
 
     def receive_trigger_signal(self, trigger):
 
@@ -215,7 +203,6 @@ class OWModesSelector(WofryWidget):
     def increase_mode_index(self):
         if self.MODE_INDEX+1 >= self.af.number_of_modes():
             pass
-            # raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
         else:
             self.MODE_INDEX += 1
             self.do_plot_and_send_mode()
@@ -223,7 +210,6 @@ class OWModesSelector(WofryWidget):
     def decrease_mode_index(self):
         if self.MODE_INDEX-1 < 0:
             pass
-            # raise Exception("Mode index %d not available"%(self.MODE_INDEX+1))
         else:
             self.MODE_INDEX -= 1
             self.do_plot_and_send_mode()
@@ -301,12 +287,11 @@ class OWModesSelector(WofryWidget):
             if self.REFERENCE_SOURCE:
                 self.tab_titles += ["REFERENCE SPECTRAL DENSITY","REFERENCE ELECRON DENSITY","REFERENCE UNDULATOR WAVEFRONT"]
 
-
     def do_plot_and_send_mode(self):
-        self.do_plot()
+        self.do_plot_results()
         self.send_mode()
 
-    def do_plot(self):
+    def do_plot_results(self, progressBarValue=10):  # required by parent widget
         old_tab_index = self.tabs.currentIndex()
 
         try:
@@ -357,7 +342,8 @@ class OWModesSelector(WofryWidget):
                 ymax = numpy.max(yy)
 
             else:
-                raise Exception("Nothing to plot")
+                print("No input data")
+                return
 
             #
             # plot spectrum
@@ -454,13 +440,9 @@ class OWModesSelector(WofryWidget):
                 self.plot_canvas[tab_index].setStack(myprocess(numpy.swapaxes(self.af.modes(), 2, 1)),
                                                      calibrations=[dim0_calib, dim1_calib, dim2_calib])
 
-                # self.plot_canvas[1].setStack( self.af.modes(),
-                #                               calibrations=[dim0_calib, dim1_calib, dim2_calib] )
-
                 self.tab[tab_index].layout().addWidget(self.plot_canvas[tab_index])
             else:
                 tab_index += 1
-                # image = myprocess((self.af.mode(self.MODE_INDEX)))
                 wf = self.af.get_wavefront(self.MODE_INDEX, normalize_with_eigenvalue=self.NORMALIZATION)
                 image = myprocess(wf.get_complex_amplitude())
 
@@ -472,6 +454,7 @@ class OWModesSelector(WofryWidget):
                                  xtitle="X [um] (%d pixels)" % (image.shape[0]),
                                  ytitle="Y [um] (%d pixels)" % (image.shape[1]))
 
+            #
             # plot spectral density
             #
             if self.REFERENCE_SOURCE:
@@ -493,7 +476,6 @@ class OWModesSelector(WofryWidget):
                 if self.INDIVIDUAL_MODES:
                     tab_index += 1
                     image = myprocess((self.af.intensity_from_modes()))
-                    # self.do_plot_image_in_tab(image,tab_index,title="Spectral Density (Intensity)")
                     self.plot_data2D(image,
                                      1e6 * self.af.x_coordinates(),
                                      1e6 * self.af.y_coordinates(),
@@ -508,7 +490,6 @@ class OWModesSelector(WofryWidget):
             if self.REFERENCE_SOURCE:
                 tab_index += 1
                 image = numpy.abs(self.af.reference_electron_density()) ** 2  # TODO: Correct? it is complex...
-                # self.do_plot_image_in_tab(image,tab_index,title="Reference electron density")
                 self.plot_data2D(image,
                                  1e6 * self.af.x_coordinates(),
                                  1e6 * self.af.y_coordinates(),
@@ -539,17 +520,7 @@ class OWModesSelector(WofryWidget):
 
 
     def get_doc(self):
-        print("PhotonViewer: help pressed.\n")
-        home_doc = resources.package_dirname("orangecontrib.oasyscrystalpy") + "/doc_files/"
-        filename1 = os.path.join(home_doc, 'CrystalViewer'+'.txt')
-        print("PhotonViewer: Opening file %s\n" % filename1)
-        if sys.platform == 'darwin':
-            command = "open -a TextEdit "+filename1+" &"
-        elif sys.platform == 'linux':
-            command = "gedit "+filename1+" &"
-        else:
-            raise Exception("PhotonViewer: sys.platform did not yield an acceptable value!\n")
-        os.system(command)
+        pass
 
     def send_mode(self):
 
@@ -564,8 +535,6 @@ class OWModesSelector(WofryWidget):
         else:
             wf.set_complex_amplitude(ampl)
 
-        # self.send("WofryData", WofryData(wavefront=wf))
-
         beamline = WOBeamline(light_source=self.get_light_source())
         print(">>> sending mode: ", int(self.MODE_INDEX))
         self.send("WofryData", WofryData(
@@ -578,12 +547,14 @@ class OWModesSelector(WofryWidget):
 
 if __name__ == '__main__':
 
+    filename = "/scisoft/users/srio/COMSYL-SLURM/comsyl/comsyl-submit/calculations/id18_ebs_u18_2500mm_s6.0.npz"
+    af = CompactAFReader.initialize_from_file(filename)
+
+
+
     app = QApplication([])
     ow = OWModesSelector()
 
-
-    filename = "/users/srio/Oasys/id18_ebs_u20_2000mm_s3.0.npy"
-    af = CompactAFReader.initialize_from_file(filename)
     ow.setCompactAFReader(af)
 
     ow.show()
