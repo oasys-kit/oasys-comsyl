@@ -464,8 +464,7 @@ def to_python_code(self, # self is beamline
     elif graph_file_flag == 2:
         dump_file = "%s.pdf" % root_file_name
 
-    full_text_code += "\n\n" + indent + 'tally.plot_intensity_accumulated(show=%d,filename="%s",coordinates_factor=1e6)' % (show_graph_flag, dump_file)
-
+    full_text_code += "\n\n" + indent + 'tally.plot_intensity_accumulated(show=%d,filename="%s",coordinates_factor=1e6,aspect="auto")' % (show_graph_flag, dump_file)
 
     if data_file_flag:
         full_text_code += "\n\n#" + indent + 'tally.save(filename="%s.h5")' % (root_file_name)

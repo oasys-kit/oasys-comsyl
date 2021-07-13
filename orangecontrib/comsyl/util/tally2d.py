@@ -120,7 +120,7 @@ class Tally2D():
 
         return fwhm_x, fwhm_y
 
-    def plot_intensity_accumulated(self, show=1, filename="",
+    def plot_intensity_accumulated(self, show=1, filename="", aspect=None,
                                    title="intensity accumulated", xtitle="x", ytitle="y",
                                    coordinates_factor=1.0):
 
@@ -130,7 +130,7 @@ class Tally2D():
                    coordinates_factor * self.coordinate_x,
                    coordinates_factor * self.coordinate_y,
                    title="%s fwhm=%g x %g " % (title, coordinates_factor*fwhm_x, coordinates_factor * fwhm_y),
-                   xtitle=xtitle, ytitle=ytitle, show=False)
+                   xtitle=xtitle, ytitle=ytitle, aspect=aspect, show=False)
 
         if filename != "":
             plt.savefig(filename)
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     print(sc.fwhm_x, sc.fwhm_y)
     # plot_image(sc.intensity_accumulated, sc.coordinate_x, sc.coordinate_y)
 
-    sc.plot_intensity_accumulated(coordinates_factor=1e6)
+    sc.plot_intensity_accumulated(coordinates_factor=1e6, aspect='auto')
     # sc.plot()
     # sc.save_scan("tmp.dat")
 
