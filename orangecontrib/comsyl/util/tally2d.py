@@ -3,7 +3,9 @@ from oasys.util.oasys_util import get_fwhm
 
 from srxraylib.plot.gol import plot, plot_image
 import matplotlib.pylab as plt
-import os
+import os, sys, time
+import h5py
+from srxraylib.util.h5_simple_writer import H5SimpleWriter
 
 # def get_fwhm(histogram, bins):
 #     quote = numpy.max(histogram)*0.5
@@ -120,6 +122,17 @@ class Tally2D():
 
         return fwhm_x, fwhm_y
 
+    def get_histograms(self):
+        hx = self.intensity_accumulated.sum(axis=1)
+        hy = self.intensity_accumulated.sum(axis=0)
+        return hx, hy
+
+    def get_fwhm_histograms(self):
+        hx, hy = self.get_histograms()
+        fwhm_x, quote, coordinates = get_fwhm(hx, self.coordinate_x)
+        fwhm_y, quote, coordinates = get_fwhm(hy, self.coordinate_y)
+        return fwhm_x, fwhm_y
+
     def plot_intensity_accumulated(self, show=1, filename="", aspect=None,
                                    title="intensity accumulated", xtitle="x", ytitle="y",
                                    coordinates_factor=1.0):
@@ -129,7 +142,7 @@ class Tally2D():
         plot_image(self.intensity_accumulated,
                    coordinates_factor * self.coordinate_x,
                    coordinates_factor * self.coordinate_y,
-                   title="%s fwhm=%g x %g " % (title, coordinates_factor*fwhm_x, coordinates_factor * fwhm_y),
+                   title="%s fwhm of central profiles=%g x %g " % (title, coordinates_factor*fwhm_x, coordinates_factor * fwhm_y),
                    xtitle=xtitle, ytitle=ytitle, aspect=aspect, show=False)
 
         if filename != "":
@@ -141,25 +154,62 @@ class Tally2D():
         else:
             plt.close()
 
-        # x = numpy.array(self.scan_variable_value)
+    def save(self, filename=""):
+
+        if filename == "": return
+
+        fwhm_profile_x, fwhm_profile_y = self.get_fwhm_intensity_accumulated()
+        fwhm_histo_x, fwhm_histo_y = self.get_fwhm_histograms()
+
+        Z = self.intensity_accumulated
+        hx, hy = self.get_histograms()
+        x_coordinates = 1e3 * self.coordinate_x
+        y_coordinates = 1e3 * self.coordinate_y
+
         #
+        # initialize file
         #
-        # y = numpy.array(self.intensity_at_center)
-        # plot(x, y, yrange=[0,1.1*y.max()],
-        #      title=title, ytitle="Intensity at center[a.u.]", xtitle=self.scan_variable_name,
-        #      figsize=(15, 4), show=0)
-        #
-        # # y = numpy.array(self.intensity_total)
-        # # plot(x, y, yrange=[0,1.1*y.max()],
-        # #      title=title, ytitle="Beam intensity [a.u.]", xtitle=self.scan_variable_name,
-        # #      figsize=(15, 4), show=0)
-        #
-        # y = numpy.array(self.fwhm)
-        # plot(x, y, yrange=[0,1.1*y.max()],
-        #      title=title, ytitle="FWHM [um]", xtitle=self.scan_variable_name,
-        #      figsize=(15, 4), show=1)
+        h5w = H5SimpleWriter.initialize_file(filename, creator="h5_basic_writer.py")
+
+        # this is optional
+        h5w.set_label_image("intensity_accumulated", b'x', b'y')
+        h5w.set_label_dataset(b'abscissas', b'intensity')
 
 
+        # create the entry for this iteration and set default plot to "Wintensity"
+        h5w.create_entry("accumulated_intensity", nx_default="intensity")
+
+
+        # add the images at this entry level
+        h5w.add_image(Z, 1e3 * x_coordinates, 1e3 * y_coordinates,
+                      entry_name="accumulated_intensity", image_name="intensity",
+                      title_x="X [um]", title_y="Y [um]")
+
+
+        h5w.add_dataset(1e3 * x_coordinates, Z[:, int(y_coordinates.size / 2)],
+                        entry_name="accumulated_intensity", dataset_name="profileH",
+                        title_x="X [um]", title_y="Profile along X")
+        h5w.add_key("fwhm", 1e6*fwhm_profile_x, entry_name="accumulated_intensity/profileH")
+
+
+        h5w.add_dataset(1e3 * y_coordinates, Z[int(x_coordinates.size / 2), :],
+                        entry_name="accumulated_intensity", dataset_name="profileV",
+                        title_x="Y [um]", title_y="Profile along Y")
+        h5w.add_key("fwhm", 1e6 * fwhm_profile_y, entry_name="accumulated_intensity/profileV")
+
+
+        h5w.add_dataset(1e3 * x_coordinates, hx,
+                        entry_name="accumulated_intensity", dataset_name="histogramH",
+                        title_x="X [um]", title_y="Histogram along X")
+        h5w.add_key("fwhm", 1e6 * fwhm_histo_x, entry_name="accumulated_intensity/histogramH")
+
+
+        h5w.add_dataset(1e3 * y_coordinates, hy,
+                        entry_name="accumulated_intensity", dataset_name="histogramV",
+                        title_x="Y [um]", title_y="Histogram along Y")
+        h5w.add_key("fwhm", 1e6 * fwhm_histo_y, entry_name="accumulated_intensity/histogramV")
+
+        print("File written to disk: %s" % filename)
 
     @classmethod
     def process_wavefront_2d(cls, wf):
@@ -201,5 +251,5 @@ if __name__ == "__main__":
 
     sc.plot_intensity_accumulated(coordinates_factor=1e6, aspect='auto')
     # sc.plot()
-    # sc.save_scan("tmp.dat")
+    sc.save("tmp.h5")
 
