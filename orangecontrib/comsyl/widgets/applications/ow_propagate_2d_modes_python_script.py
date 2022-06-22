@@ -13,7 +13,7 @@ from oasys.widgets import widget
 from oasys.util.oasys_util import TriggerIn, TriggerOut, EmittingStream
 
 from orangecontrib.wofry.util.wofry_objects import WofryData
-from orangecontrib.esrf.shadow.util.python_script import PythonConsole
+from orangecontrib.esrf.shadow.util.python_script import PythonConsole # TODO: this needs that OASYS1-ESRF-Extensions
 
 
 # from oasys.widgets import gui as oasysgui
